@@ -1,6 +1,9 @@
 const express = require("express");
 const app = express();
+const swaggerUi = require("swagger-ui-express");
+const openApiDocument = require("./openai.json");
 app.use(express.json());
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 class Task {
   id;
