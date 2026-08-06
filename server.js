@@ -18,7 +18,7 @@ class Task {
   }
 
   changeStatus(done = null) {
-    if (done) {
+    if (done === undefined) {
       this.done = done;
     }
     else {
@@ -29,18 +29,17 @@ class Task {
   changeTitle(title) {
     this.title = title;
   }
-
 }
 
 let tasks = []
 tasks.push(new Task("first", tasks, done = true));
 tasks.push(new Task("second", tasks));
 tasks.push(new Task("third", tasks));
-
+// ---------- GET ----------
 app.get("/", (req, res) => {
   res.json({
     name: "Task API",
-    version: "1.0",
+    version: "3.0",
     endpoints: ["/tasks"],
   });
 });
@@ -64,6 +63,8 @@ app.get("/tasks/:id", (req, res) => {
   res.json(task);
 });
 
+// ---------- POST ----------
+
 app.post("/tasks", (req, res) => {
   const title = req.body.title;
   if (!title) {
@@ -75,8 +76,40 @@ app.post("/tasks", (req, res) => {
   return res.status(201).json(task);
 })
 
+// ---------- PUT ----------
+
+app.put("/tasks/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const task = tasks.find((t) => t.id === id);
+  if (!task) return res.status(404).json({ error: `Task ${id} not found` });
+  const { title, done } = req.body;
+
+  if (done === undefined && (title === undefined || title.trim() === ""))
+    return res.status(400).json({ error: `Request body must include a valid title or done status` });
+
+  if (done !== undefined) {
+    task.done = req.body.done;
+  }
+  if (title) {
+    task.title = req.body.title;
+  }
+  return res.status(200).json(task);
+})
+
+// ---------- DELETE ----------
+
+app.delete("/tasks/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const index = tasks.findIndex(t => t.id === id);
+  if (index === -1) return res.status(404).json({ error: `Task ${id} not found` });
+  tasks.splice(index, 1); //delete 1 element starting from that index
+
+  return res.status(204).send(); // `.send()` to actually send the empty body
+})
 
 
+
+// ---------- FUNCTIONS ----------
 
 function generateId(array) {
   if (!array.length) return 1;
@@ -84,9 +117,6 @@ function generateId(array) {
   const maxId = Math.max(...array.map((t) => t.id));
   return maxId + 1;
 }
-
-
-
 app.listen(3000, () => {
   console.log("Server running on http://localhost:3000");
 });
