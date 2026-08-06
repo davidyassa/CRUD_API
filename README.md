@@ -4,6 +4,8 @@ A small CRUD API for managing an in-memory to-do list, built with Node.js and Ex
 
 Supports full Create, Read, Update, and Delete on tasks, interactive documentation via Swagger UI, and a couple of stretch extras (filtering, search, stats, reset).
 
+#### 🚀 Built as part of the FlyRank Backend Internship (Week 2, Assignment A1).
+
 ## Tech stack
 
 - **Node.js** + **Express** — server and routing
@@ -115,3 +117,4 @@ Full interactive documentation, including request/response schemas and a "Try it
 ├── package.json
 └── README.md
 ```
+
