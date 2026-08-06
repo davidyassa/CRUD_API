@@ -1,7 +1,7 @@
-const express = require("express");
-const app = express();
-const swaggerUi = require("swagger-ui-express");
-const openApiDocument = require("./openai.json");
+const express = require("express"),
+  app = express(),
+  swaggerUi = require("swagger-ui-express"),
+  openApiDocument = require("./openai.json");
 app.use(express.json());
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
@@ -16,16 +16,12 @@ class Task {
     this.done = done;
   }
 
-  isDone() {
-    return this.done;
-  }
-
-  changeStatus(done = null) {
+  changeStatus(done = undefined) {
     if (done === undefined) {
-      this.done = done;
+      this.done = !this.done;
     }
     else {
-      this.done = !this.done;
+      this.done = done;
     }
   }
 
@@ -35,9 +31,8 @@ class Task {
 }
 
 let tasks = []
-tasks.push(new Task("first", tasks, done = true));
-tasks.push(new Task("second", tasks));
-tasks.push(new Task("third", tasks));
+fillTasks(tasks);
+
 // ---------- GET ----------
 app.get("/", (req, res) => {
   res.json({
@@ -51,10 +46,6 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.get("/tasks", (req, res) => {
-  res.json(tasks);
-});
-
 app.get("/tasks/:id", (req, res) => {
   const id = Number(req.params.id);
   const task = tasks.find((t) => t.id === id);
@@ -66,6 +57,27 @@ app.get("/tasks/:id", (req, res) => {
   res.json(task);
 });
 
+app.get("/stats", (req, res) => {
+  const l = tasks.length;
+  // const adminCount = users.filter(user => user.role === 'admin').length;
+  const d = tasks.filter(t => t.done).length;
+  res.json({ "total": l, "completed": d });
+});
+
+app.get("/tasks", (req, res) => {
+  let result = tasks
+  if (req.query.done !== undefined) {
+    const d = req.query.done.toLowerCase() === "true";
+    result = result.filter(t => t.done === d);
+  }
+  if (req.query.search !== undefined && req.query.search.trim() !== "") {
+    const title = req.query.search.toLowerCase();
+    result = result.filter(t => t.title.toLowerCase().includes(title));
+  }
+
+  res.json(result);
+});
+
 // ---------- POST ----------
 
 app.post("/tasks", (req, res) => {
@@ -73,10 +85,20 @@ app.post("/tasks", (req, res) => {
   if (!title) {
     return res.status(400).json({ error: `Title is empty` });
   }
+  const taskExists = tasks.find((t) => t.title === title);
 
+  if (taskExists) {
+    return res.status(409).json({ error: `Task \`${title}\` already exists` });
+  }
   const task = new Task(title, tasks);
   tasks.push(task);
   return res.status(201).json(task);
+})
+
+app.post("/reset", (req, res) => {
+  tasks.length = 0; //clear array in-place
+  fillTasks(tasks);
+  res.status(200).json(tasks);
 })
 
 // ---------- PUT ----------
@@ -91,10 +113,10 @@ app.put("/tasks/:id", (req, res) => {
     return res.status(400).json({ error: `Request body must include a valid title or done status` });
 
   if (done !== undefined) {
-    task.done = req.body.done;
+    task.changeStatus(req.body.done);
   }
   if (title) {
-    task.title = req.body.title;
+    task.changeTitle(req.body.title);
   }
   return res.status(200).json(task);
 })
@@ -116,10 +138,25 @@ app.delete("/tasks/:id", (req, res) => {
 
 function generateId(array) {
   if (!array.length) return 1;
-  // `...` unpacks the list of IDs returned, like python's `*args`
+  // `...` unpacks the array of IDs returned, like python's `*args`
   const maxId = Math.max(...array.map((t) => t.id));
   return maxId + 1;
 }
+function fillTasks(array) {
+  array.push(new Task("first", array, true));
+  array.push(new Task("second", array));
+  array.push(new Task("third", array));
+}
+
+// ---------- ERROR HANDLING ----------
+
+app.use((err, req, res, next) => {
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ error: "Invalid JSON in request body" });
+  }
+  next(err);
+});
+
 app.listen(3000, () => {
   console.log("Server running on http://localhost:3000");
 });

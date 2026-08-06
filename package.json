@@ -20,6 +20,7 @@
   "homepage": "https://github.com/davidyassa/CRUD_API#readme",
   "dependencies": {
     "express": "^5.2.1",
+    "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1"
   }
 }
