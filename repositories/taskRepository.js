@@ -7,7 +7,7 @@ function toApiShape(row) {
 
 // ---------- GET ----------
 
-function getAllTasks({ done, search } = {}) {
+function getTasks({ done, search } = {}) {
     let query = "SELECT * FROM tasks WHERE 1=1"; // `WHERE 1=1` to help later build dynamic query
     const params = [];
 
@@ -42,6 +42,25 @@ function createTask(title, done = false) {
     return getTaskById(result.lastInsertRowid);
 }
 
+function updateTask(id, { title, done } = {}) {
+    const existing = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
+    if (!existing) return undefined;
+
+    const newTitle = title ?? existing.title; // `??` default value if null
+    const newDone = done !== undefined ? (done ? 1 : 0) : existing.done;
+
+    db.prepare("UPDATE tasks SET title = ?, done = ? WHERE id = ?").run(
+        newTitle,
+        newDone,
+        id
+    );
+    return getTaskById(id);
+}
+
+function deleteTask(id) {
+    const result = db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+    return result.changes > 0; // true if something changed in the table
+}
 function fillTasks(db) {
     const insert = db.prepare("INSERT INTO tasks (title, done) VALUES (?, ?)");
     insert.run("first", 1);
@@ -50,8 +69,10 @@ function fillTasks(db) {
 }
 
 module.exports = {
-    getAllTasks,
+    getTasks,
     getTaskById,
     getTaskByTitle,
     createTask,
+    updateTask,
+    deleteTask,
 };

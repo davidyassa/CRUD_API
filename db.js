@@ -1,5 +1,5 @@
-const taskRepo = require("./repositories/taskRepository"),
-    Database = require("better-sqlite3"),
+const taskRepo = require("./repositories/taskRepository");
+const Database = require("better-sqlite3"),
     db = new Database("tasks.db");
 db.pragma("journal_mode = WAL");
 db.exec(`

@@ -6,33 +6,6 @@ const taskRepo = require("./repositories/taskRepository"),
 app.use(express.json());
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
-class Task {
-  id;
-  title;
-  done;
-
-  constructor(title, array, done = false) {
-    this.id = generateId(array);
-    this.title = title;
-    this.done = done;
-  }
-
-  changeStatus(done = undefined) {
-    if (done === undefined) {
-      this.done = !this.done;
-    }
-    else {
-      this.done = done;
-    }
-  }
-
-  changeTitle(title) {
-    this.title = title;
-  }
-}
-
-let tasks = []
-
 // ---------- GET ----------
 
 app.get("/", (req, res) => {
@@ -48,9 +21,9 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/tasks", (req, res) => {
-  const d = req.query.done !== undefined ? req.query.done.toLowerCase() === "true" : undefined;
+  const d = req.query.done !== undefined ? (req.query.done.toLowerCase() === "true") : undefined;
 
-  res.json(taskRepo.getAllTasks({ d, search: req.query.search }));
+  res.json(taskRepo.getTasks({ done: d, search: req.query.search }));
 });
 
 app.get("/tasks/:id", (req, res) => {
@@ -99,43 +72,26 @@ app.post("/tasks", (req, res) => {
 
 app.put("/tasks/:id", (req, res) => {
   const id = Number(req.params.id);
-  const task = tasks.find((t) => t.id === id);
-  if (!task) return res.status(404).json({ error: `Task ${id} not found` });
   const { title, done } = req.body;
-
   if (done === undefined && (title === undefined || title.trim() === ""))
     return res.status(400).json({ error: `Request body must include a valid title or done status` });
 
-  if (done !== undefined) {
-    task.changeStatus(req.body.done);
-  }
-  if (title) {
-    task.changeTitle(req.body.title);
-  }
-  return res.status(200).json(task);
+  const updated = taskRepo.updateTask(id, { title, done });
+
+  if (!updated) return res.status(404).json({ error: `Task ${id} not found` });
+  return res.status(200).json(updated);
 })
 
 // ---------- DELETE ----------
 
 app.delete("/tasks/:id", (req, res) => {
   const id = Number(req.params.id);
-  const index = tasks.findIndex(t => t.id === id);
-  if (index === -1) return res.status(404).json({ error: `Task ${id} not found` });
-  tasks.splice(index, 1); //delete 1 element starting from that index
+
+  const deleted = taskRepo.deleteTask(id);
+  if (!deleted) return res.status(404).json({ error: `Task ${id} not found` });
 
   return res.status(204).send(); // `.send()` to actually send the empty body
 })
-
-
-
-// ---------- FUNCTIONS ----------
-
-function generateId(array) {
-  if (!array.length) return 1;
-  // `...` unpacks the array of IDs returned, like python's `*args`
-  const maxId = Math.max(...array.map((t) => t.id));
-  return maxId + 1;
-}
 
 // ---------- ERROR HANDLING ----------
 
