@@ -1,4 +1,5 @@
-const express = require("express"),
+const taskRepo = require("./repositories/taskRepository"),
+  express = require("express"),
   app = express(),
   swaggerUi = require("swagger-ui-express"),
   openApiDocument = require("./openai.json");
@@ -46,9 +47,15 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
+app.get("/tasks", (req, res) => {
+  const d = req.query.done !== undefined ? req.query.done.toLowerCase() === "true" : undefined;
+
+  res.json(taskRepo.getAllTasks({ d, search: req.query.search }));
+});
+
 app.get("/tasks/:id", (req, res) => {
   const id = Number(req.params.id);
-  const task = tasks.find((t) => t.id === id);
+  const task = taskRepo.getTaskById(id);
 
   if (!task) {
     return res.status(404).json({ error: `Task ${id} not found` });
@@ -57,26 +64,15 @@ app.get("/tasks/:id", (req, res) => {
   res.json(task);
 });
 
-app.get("/stats", (req, res) => {
-  const l = tasks.length;
-  // const adminCount = users.filter(user => user.role === 'admin').length;
-  const d = tasks.filter(t => t.done).length;
-  res.json({ "total": l, "completed": d });
-});
+// `/stats` won't return the actual stats, will update in a later stage
+// app.get("/stats", (req, res) => {
+//   const l = tasks.length;
+//   // const adminCount = users.filter(user => user.role === 'admin').length;
+//   const d = tasks.filter(t => t.done).length;
+//   res.json({ "total": l, "completed": d });
+// });
 
-app.get("/tasks", (req, res) => {
-  let result = tasks
-  if (req.query.done !== undefined) {
-    const d = req.query.done.toLowerCase() === "true";
-    result = result.filter(t => t.done === d);
-  }
-  if (req.query.search !== undefined && req.query.search.trim() !== "") {
-    const title = req.query.search.toLowerCase();
-    result = result.filter(t => t.title.toLowerCase().includes(title));
-  }
 
-  res.json(result);
-});
 
 // ---------- POST ----------
 
