@@ -32,9 +32,9 @@ class Task {
 }
 
 let tasks = []
-fillTasks(tasks);
 
 // ---------- GET ----------
+
 app.get("/", (req, res) => {
   res.json({
     name: "Task API",
@@ -72,8 +72,6 @@ app.get("/tasks/:id", (req, res) => {
 //   res.json({ "total": l, "completed": d });
 // });
 
-
-
 // ---------- POST ----------
 
 app.post("/tasks", (req, res) => {
@@ -81,21 +79,21 @@ app.post("/tasks", (req, res) => {
   if (!title) {
     return res.status(400).json({ error: `Title is empty` });
   }
-  const taskExists = tasks.find((t) => t.title === title);
+  const taskExists = taskRepo.getTaskByTitle(title);
 
   if (taskExists) {
     return res.status(409).json({ error: `Task \`${title}\` already exists` });
   }
-  const task = new Task(title, tasks);
-  tasks.push(task);
+  const task = taskRepo.createTask(title);
   return res.status(201).json(task);
 })
 
-app.post("/reset", (req, res) => {
-  tasks.length = 0; //clear array in-place
-  fillTasks(tasks);
-  res.status(200).json(tasks);
-})
+// will update in a later stage
+// app.post("/reset", (req, res) => {
+//   tasks.length = 0; //clear array in-place
+//   fillTasks(tasks);
+//   res.status(200).json(tasks);
+// })
 
 // ---------- PUT ----------
 
@@ -137,11 +135,6 @@ function generateId(array) {
   // `...` unpacks the array of IDs returned, like python's `*args`
   const maxId = Math.max(...array.map((t) => t.id));
   return maxId + 1;
-}
-function fillTasks(array) {
-  array.push(new Task("first", array, true));
-  array.push(new Task("second", array));
-  array.push(new Task("third", array));
 }
 
 // ---------- ERROR HANDLING ----------
