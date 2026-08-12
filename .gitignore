@@ -143,5 +143,6 @@ vite.config.ts.timestamp-*
 .vite/
 
 # db files
+*.db
 *.db-shm
 *.db-wal
