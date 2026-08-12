@@ -62,11 +62,10 @@ app.post("/tasks", (req, res) => {
 })
 
 // will update in a later stage
-// app.post("/reset", (req, res) => {
-//   tasks.length = 0; //clear array in-place
-//   fillTasks(tasks);
-//   res.status(200).json(tasks);
-// })
+app.post("/reset", (req, res) => {
+  taskRepo.resetTasks();
+  res.status(200).json(tasks);
+})
 
 // ---------- PUT ----------
 

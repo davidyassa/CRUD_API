@@ -118,3 +118,20 @@ Full interactive documentation, including request/response schemas and a "Try it
 └── README.md
 ```
 
+## SQLite Exploration (Stage 4)
+
+While manually exploring the database with a SQLite viewer, I ran:
+
+```sql
+DELETE FROM tasks WHERE done = 1;
+```
+
+This deletes every row where `done` is `1` (completed tasks). Running it against my
+seeded/test data cleared out the completed rows — a direct, visible confirmation that
+manual database changes take effect immediately and are reflected the next time the
+API reads from it (`GET /tasks` returned fewer rows afterward, with no code change
+required on the server).
+
+This is the same query pattern the app itself could expose as a "clear completed"
+endpoint later — the SQL is trivial, only the wiring (a route calling this statement)
+would need to be added.

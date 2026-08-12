@@ -1,7 +1,6 @@
-const taskRepo = require("./repositories/taskRepository");
 const Database = require("better-sqlite3"),
-    db = new Database("tasks.db");
-db.pragma("journal_mode = WAL");
+  db = new Database("tasks.db");
+db.pragma("journal_mode = WAL"); // for better concurrency and safer writes
 db.exec(`
   CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -11,7 +10,16 @@ db.exec(`
 `);
 
 const { count } = db.prepare("SELECT COUNT(*) AS count FROM tasks").get();
-if (count === 0) taskRepo.fillTasks(db);
+if (count === 0) fillTasks();
 
-module.exports = db;
+function fillTasks() {
+  const insert = db.prepare("INSERT INTO tasks (title, done) VALUES (?, ?)");
+  insert.run("first", 1);
+  insert.run("second", 0);
+  insert.run("third", 0);
+}
+
+module.exports = {
+  db,
+}
 

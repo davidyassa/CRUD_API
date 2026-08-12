@@ -1,4 +1,4 @@
-const db = require("../db");
+const db = require("../db").db;
 
 /** Converts a raw SQLite row (done as 0/1) into API-shape JSON (done as boolean). */
 function toApiShape(row) {
@@ -57,15 +57,14 @@ function updateTask(id, { title, done } = {}) {
     return getTaskById(id);
 }
 
+function resetTasks() {
+    // TODO: clear all tasks
+    fillTasks();
+}
+
 function deleteTask(id) {
     const result = db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
     return result.changes > 0; // true if something changed in the table
-}
-function fillTasks(db) {
-    const insert = db.prepare("INSERT INTO tasks (title, done) VALUES (?, ?)");
-    insert.run("first", 1);
-    insert.run("second", 0);
-    insert.run("third", 0);
 }
 
 module.exports = {
@@ -75,4 +74,5 @@ module.exports = {
     createTask,
     updateTask,
     deleteTask,
+    resetTasks,
 };
