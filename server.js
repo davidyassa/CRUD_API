@@ -22,8 +22,7 @@ app.get("/health", (req, res) => {
 
 app.get("/tasks", (req, res) => {
   const d = req.query.done !== undefined ? (req.query.done.toLowerCase() === "true") : undefined;
-
-  res.json(taskRepo.getTasks({ done: d, search: req.query.search }));
+  res.json(taskRepo.getTasks({ done: d, search: req.query.search, sorted: req.query.sorted }));
 });
 
 app.get("/tasks/:id", (req, res) => {
@@ -33,17 +32,15 @@ app.get("/tasks/:id", (req, res) => {
   if (!task) {
     return res.status(404).json({ error: `Task ${id} not found` });
   }
-
   res.json(task);
 });
 
-// `/stats` won't return the actual stats, will update in a later stage
-// app.get("/stats", (req, res) => {
-//   const l = tasks.length;
-//   // const adminCount = users.filter(user => user.role === 'admin').length;
-//   const d = tasks.filter(t => t.done).length;
-//   res.json({ "total": l, "completed": d });
-// });
+app.get("/stats", (req, res) => {
+  const l = taskRepo.countTasks();
+  const done = taskRepo.countTasks(true);
+  const undone = taskRepo.countTasks(false);
+  res.json({ "total": l, "completed": done, "remaining": undone });
+});
 
 // ---------- POST ----------
 
@@ -61,11 +58,10 @@ app.post("/tasks", (req, res) => {
   return res.status(201).json(task);
 })
 
-// will update in a later stage
 app.post("/reset", (req, res) => {
   taskRepo.resetTasks();
-  res.status(200).json(tasks);
-})
+  res.status(200).json(taskRepo.getTasks());
+});
 
 // ---------- PUT ----------
 

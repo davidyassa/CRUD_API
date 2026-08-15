@@ -9,8 +9,7 @@ db.exec(`
   )
 `);
 
-const { count } = db.prepare("SELECT COUNT(*) AS count FROM tasks").get();
-if (count === 0) fillTasks();
+if (countTasks() === 0) fillTasks();
 
 function fillTasks() {
   const insert = db.prepare("INSERT INTO tasks (title, done) VALUES (?, ?)");
@@ -19,7 +18,18 @@ function fillTasks() {
   insert.run("third", 0);
 }
 
+function countTasks(done = undefined) {
+  let query = "SELECT COUNT(*) AS count FROM tasks WHERE 1=1";
+  if (done !== undefined) {
+    query += " AND done = ?";
+    return db.prepare(query).get(done ? 1 : 0).count;
+  }
+  return db.prepare(query).get().count;
+}
+
 module.exports = {
   db,
+  countTasks,
+  fillTasks,
 }
 

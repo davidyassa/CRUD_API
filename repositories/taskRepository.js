@@ -1,5 +1,5 @@
-const db = require("../db").db;
-
+const dbjs = require("../db"),
+    db = dbjs.db;
 /** Converts a raw SQLite row (done as 0/1) into API-shape JSON (done as boolean). */
 function toApiShape(row) {
     return { ...row, done: Boolean(row.done) };
@@ -7,7 +7,7 @@ function toApiShape(row) {
 
 // ---------- GET ----------
 
-function getTasks({ done, search } = {}) {
+function getTasks({ done, search, sorted } = {}) {
     let query = "SELECT * FROM tasks WHERE 1=1"; // `WHERE 1=1` to help later build dynamic query
     const params = [];
 
@@ -15,10 +15,15 @@ function getTasks({ done, search } = {}) {
         query += " AND done = ?";
         params.push(done ? 1 : 0);
     }
-    if (search !== undefined && search.trim() !== "") {
+    if (typeof search === "string" && search.trim() !== "") {
         query += " AND LOWER(title) LIKE ?";
         params.push(`%${search.toLowerCase()}%`);
     }
+
+    if (Boolean(sorted.toLowerCase()) === true) {
+        query += " ORDER BY title";
+    }
+
 
     return db.prepare(query).all(...params).map(toApiShape);
 }
@@ -38,9 +43,17 @@ function getTaskById(id) {
 function createTask(title, done = false) {
     const result = db
         .prepare("INSERT INTO tasks (title, done) VALUES (?, ?)")
-        .run(title, done ? 1 : 0);
+        .run(title.toLowerCase(), done ? 1 : 0);
     return getTaskById(result.lastInsertRowid);
 }
+
+function resetTasks() {
+    db.prepare("DELETE FROM tasks").run();
+    dbjs.fillTasks();
+}
+
+// ---------- PUT ----------
+
 
 function updateTask(id, { title, done } = {}) {
     const existing = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
@@ -57,14 +70,17 @@ function updateTask(id, { title, done } = {}) {
     return getTaskById(id);
 }
 
-function resetTasks() {
-    // TODO: clear all tasks
-    fillTasks();
-}
+// ---------- DELETE ----------
 
 function deleteTask(id) {
     const result = db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
     return result.changes > 0; // true if something changed in the table
+}
+
+
+// ---------- FUNCTIONS ----------
+function countTasks(done = undefined) {
+    return dbjs.countTasks(done); // avoid accessing db from server
 }
 
 module.exports = {
@@ -75,4 +91,5 @@ module.exports = {
     updateTask,
     deleteTask,
     resetTasks,
+    countTasks,
 };
