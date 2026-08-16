@@ -14,14 +14,16 @@ Full Create, Read, Update, Delete on tasks, interactive Swagger docs, and three 
 - **swagger-ui-express** — interactive docs from a hand-written OpenAPI 3.0 spec (`openai.json`)
 - **cors** — allows browser-based tools (e.g. Hoppscotch) to call the API from a different origin
 - **Docker + Docker Compose** — containerized Postgres stack
-
+- **redis** — in-memory cache/dependency client, used here for a real Redis connectivity + health check
+- 
 ---
 
 ## 🗂️ Project structure
 ├── server.js # SQLite app (port 3001)  
 ├── server.postgres.js # Postgres app (port 3000, containerized)     
 ├── db.js # SQLite connection, table creation, seeding    
-├── db.postgres.js # Postgres connection, table creation, seeding    
+├── db.postgres.js # Postgres connection, table creation, seeding   
+├── db.redis.js                        # Redis client, connection, ping health check 
 ├── repositories/    
 │ ├── taskRepository.js # SQLite queries    
 │ └── taskRepository.postgres.js # Postgres queries — same function signatures    
@@ -106,15 +108,15 @@ Open **http://localhost:3001/docs** (SQLite) or **http://localhost:3000/docs** (
 
 ## 📡 Endpoints
 
-| Method | Path         | Description                                                      |
-| ------ | ------------ | ---------------------------------------------------------------- |
-| GET    | `/`          | API description                                                  |
-| GET    | `/health`    | Liveness check                                                   |
-| GET    | `/tasks`     | List all tasks — supports `?done=true\|false` and `?search=term` |
-| GET    | `/tasks/:id` | Get a single task by id                                          |
-| POST   | `/tasks`     | Create a task (`{ "title": "..." }`)                             |
-| PUT    | `/tasks/:id` | Update a task's `title` and/or `done`                            |
-| DELETE | `/tasks/:id` | Delete a task                                                    |
+| Method | Path         | Description                                                                           |
+| ------ | ------------ | ------------------------------------------------------------------------------------- |
+| GET    | `/`          | API description                                                                       |
+| GET    | `/health`    | Reports API + dependency status (`db`, `redis`) — `200` if healthy, `503` if degraded |
+| GET    | `/tasks`     | List all tasks — supports `?done=true\|false` and `?search=term`                      |
+| GET    | `/tasks/:id` | Get a single task by id                                                               |
+| POST   | `/tasks`     | Create a task (`{ "title": "..." }`)                                                  |
+| PUT    | `/tasks/:id` | Update a task's `title` and/or `done`                                                 |
+| DELETE | `/tasks/:id` | Delete a task                                                                         |
 
 > **Version differences:** `POST /reset` exists only on the SQLite version (`server.js`) — it wasn't ported to Postgres by design (see Known limitations). `GET /stats` is implemented on both versions.  
 
@@ -170,6 +172,17 @@ Postgres, via TablePlus:
 
 ![TablePlus screenshot](./docs/TablePlusGUI.avif)
 
+## 🩺 Health check in action
+
+Healthy state — both dependencies reachable:
+```json
+{ "status": "ok", "db": "ok", "redis": "ok" }
+```
+
+Degraded state — Redis stopped (`docker compose stop redis`), API stays up but reports it:
+
+![Health check with Redis down](./docs/disableRedis.avif)
+
 ## 🧪 Example SQL query
 
 Run manually against the SQLite database in DB Browser (Stage 4, A2):
@@ -186,6 +199,8 @@ Clears completed tasks — a direct, visible confirmation that manual database c
 - Duplicate-title check (`409`) on both `POST /tasks` and `PUT /tasks/:id`
 - Postgres version fully containerized with Docker Compose, configurable port via `.env`
 - CORS enabled so the API can be tested directly from browser-based tools like Hoppscotch
+- Real `/health` check — pings Postgres (`SELECT 1`) and Redis (`PING`) rather than returning a static `"ok"`; returns `503` if either dependency is down
+- Redis added to the Docker Compose stack (`redis:7-alpine`), connected on startup, and included in the health check
 
 ## ⚠️ Worth Noting
 
