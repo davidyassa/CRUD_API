@@ -1,6 +1,5 @@
 const dbjs = require("../db"),
     db = dbjs.db;
-const pgdb = require("../db.postgres");
 
 /** Converts a raw SQLite row (done as 0/1) into API-shape JSON (done as boolean). */
 function toApiShape(row) {
@@ -14,15 +13,16 @@ function getTasks({ done, search, sorted } = {}) {
     const params = [];
 
     if (done !== undefined) {
-        query += " AND done = ?";
         params.push(done ? 1 : 0);
-    }
-    if (typeof search === "string" && search.trim() !== "") {
-        query += " AND LOWER(title) LIKE ?";
-        params.push(`%${search.toLowerCase()}%`);
+        query += " AND done = ?";
     }
 
-    if (Boolean(sorted.toLowerCase()) === true) {
+    if (typeof search === "string" && search.trim() !== "") {
+        params.push(`%${search.toLowerCase()}%`);
+        query += " AND LOWER(title) LIKE ?";
+    }
+
+    if (sorted !== undefined && Boolean(sorted.toLowerCase()) === true) {
         query += " ORDER BY title";
     }
 
@@ -85,18 +85,15 @@ function countTasks(done = undefined) {
     return dbjs.countTasks(done); // avoid accessing db from server
 }
 
-function initDb() {
-    pgdb.initDb();
-}
+
 
 module.exports = {
     getTasks,
-    getTaskById,
     getTaskByTitle,
+    getTaskById,
     createTask,
     updateTask,
     deleteTask,
     resetTasks,
     countTasks,
-    initDb,
 };

@@ -134,26 +134,46 @@ This is the same query pattern the app itself could expose as a "clear completed
 
 ## Containerizing the stack (A3, in progress)
 
-**Status: Stage 0 complete.** The app still runs against SQLite as described above — Postgres is not wired in yet.
+**Status: Stage 2 complete.** SQLite (`server.js`, port 3000) and Postgres (`server.postgres.js`, port 3001) now run as two independent, side-by-side apps — same repository-pattern architecture, different storage engine.
 
-A PostgreSQL 16 container is running locally with a named volume for persistence:
+### Stage 0 — Postgres in Docker
+
+A PostgreSQL 16 container runs locally with a named volume for persistence:
 
 ```bash
 docker run --name taskdb -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=tasks -p 5432:5432 -v taskdata:/var/lib/postgresql/data -d postgres:16
 ```
 
-Verified with `docker ps`, confirming an empty `tasks` database is reachable on `localhost:5432`.
+**Note on Postgres version:** pinned to `postgres:16` rather than the default `postgres` (18+) tag — the 18+ image changed its data directory layout in a way that's incompatible with the simple single-mount volume this assignment assumes, and caused a startup error on the newer default.
 
-**Note on Postgres version:** pinned to `postgres:16` rather than the default `postgres` (18+) tag — the 18+ image changed its data directory layout in a way that's incompatible with the simple single-mount volume this assignment (and most guides) assume, and caused a startup error on the newer default. Pinning to 16 avoids that mismatch.
+### Stage 1 — App connects, table created, seeded once
 
-Next: connect the app via `.env` / `DATABASE_URL`, add a `taskRepository.postgres.js` implementing the same interface as the current SQLite repository, and swap it in without touching routes.
+- `DATABASE_URL` lives in `.env` (gitignored; `.env.example` committed with the same shape).
+- `db.postgres.js` connects via the `pg` driver, creates the `tasks` table if missing (`id SERIAL PRIMARY KEY, title TEXT NOT NULL, done BOOLEAN NOT NULL DEFAULT false`), and seeds three example tasks only if the table is empty — same first-run rule as A2's SQLite version.
+
+### Stage 2 — Read endpoints on Postgres
+
+- Split into two parallel apps, matching the existing `.postgres.js` naming convention already used for `db.js`/`db.postgres.js`:
+  - `server.js` + `repositories/taskRepository.js` → SQLite, port `3000` (unchanged from A2)
+  - `server.postgres.js` + `repositories/taskRepository.postgres.js` → Postgres, port `3001` (new)
+- `GET /tasks` and `GET /tasks/:id` implemented against Postgres using `$1`-style parameterized queries via `pool.query()`, matching the SQLite repository's function names, parameters, and return contract (`getTaskById` returns `undefined` when not found either way).
+- POST/PUT/DELETE routes are commented out in `server.postgres.js` until Stage 3 ports the write operations.
+- Postgres's native `BOOLEAN` column means `done` comes back as real `true`/`false` — no `toApiShape()` conversion needed, unlike the SQLite version which stores `done` as `0`/`1`.
+
+**Bug caught and fixed:** the first version of the Postgres route handlers weren't `async`, so `res.json(taskRepo.getTasks(...))` serialized the unresolved Promise itself instead of its result — every response came back as `{}`. Fixed by making each route handler `async` and `await`-ing the repository call, since `pg` has no synchronous query API (unlike `better-sqlite3`).
+
+Verified via Hoppscotch: `GET http://localhost:3001/tasks` returns the 3 seeded rows with correct `done` booleans; `GET http://localhost:3001/tasks/999` returns `404`.
+
+**Windows note:** use PowerShell, not CMD, for `docker exec ... -c "..."` commands — CMD mangles the quoted `-c` argument. PowerShell handles both single and double quotes correctly.
+
+Next: port `createTask`, `updateTask`, `deleteTask` to `taskRepository.postgres.js` and uncomment the write routes in `server.postgres.js` (Stage 3).
 
 ## Known limitations
 
 - No authentication — this is a local development API, not production-hardened.
 - Port `3000` is hardcoded rather than read from an environment variable.
 - SQLite is a single-file, single-writer database — fine for this project's scale, not intended for concurrent production traffic. Postgres migration is planned for a later assignment (A3).
-- Postgres containerization (A3) is in progress — see "Containerizing the stack" section above. `.env` / `.env.example` and a Postgres repository are not yet in the repo.
+- Postgres containerization (A3) is in progress — Stages 0–2 done (container running, table created/seeded, read endpoints working on `server.postgres.js`, port 3001). Write endpoints (POST/PUT/DELETE) and Docker Compose (Stages 3–4) not yet complete.
 
 ## Project structure
 ```
