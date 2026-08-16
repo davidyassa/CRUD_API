@@ -29,7 +29,7 @@ function countTasks(done = undefined) {
 
 module.exports = {
   db,
-  countTasks,
   fillTasks,
+  countTasks,
 }
 

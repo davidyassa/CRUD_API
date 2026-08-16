@@ -132,52 +132,27 @@ This is the same query pattern the app itself could expose as a "clear completed
 - **Query filtering** — `GET /tasks?done=true` and `GET /tasks?search=milk` (combinable)
 - **Duplicate-title check (409)** on `POST /tasks`
 
-## Containerizing the stack (A3, in progress)
+## Containerized Postgres stack (A3)
 
-**Status: Stage 3 complete.** Full CRUD now works against Postgres via `server.postgres.js` (port 3001), alongside the untouched SQLite version on `server.js` (port 3000).
+- Runs a real PostgreSQL 16 database in Docker, replacing the in-memory (A1) and SQLite (A2) storage with a proper database server — same CRUD API, same behavior, different engine underneath.
+- Pinned to `postgres:16` rather than the default `postgres` (18+) tag — the 18+ image changed its data-directory layout in a way that's incompatible with a simple single-mount volume, which caused a startup error on the newer default.
+- Data persists in a named Docker volume (`taskdata`), so tasks survive both app restarts and full container restarts.
+- The `tasks` table (`id SERIAL PRIMARY KEY, title TEXT NOT NULL, done BOOLEAN NOT NULL DEFAULT false`) is created automatically on first run, and three example tasks are seeded only if the table is empty.
+- Runs as a completely separate app from the SQLite version: `server.postgres.js` + `repositories/taskRepository.postgres.js`, mirroring the file names and function signatures of the original `server.js` + `repositories/taskRepository.js` — proving the repository pattern lets storage swap without touching routes.
+- Two ways to run it:
+  - **Standalone** (Postgres container run by hand, app run on the host): `docker run` starts Postgres, `node server.postgres.js` reads `DATABASE_URL` from a local `.env` via `dotenv`, connects over `localhost:5432`.
+  - **Docker Compose** (the full stack, one command): `docker compose up` builds the app image and starts both the `api` and `db` containers together — inside the Compose network, the app reaches Postgres by the service name `db`, not `localhost`.
+- `DATABASE_URL` is never hardcoded — in Compose it's assembled from `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` env vars (set in `.env`, with placeholder values committed to `.env.example`).
+- The container's own `npm install` only installs the four packages `server.postgres.js` actually needs (`express`, `pg`, `swagger-ui-express`, `dotenv`) rather than the full `package.json` — this deliberately skips `better-sqlite3`, since that package requires native compilation tools (`python3`, `make`, `g++`) that aren't present in the lightweight `node:22-alpine` base image, and it's not needed for the Postgres path anyway.
 
-### Stage 0 — Postgres in Docker
+### Running from scratch
 
-A PostgreSQL 16 container runs locally with a named volume for persistence:
-
-```bash
-docker run --name taskdb -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=tasks -p 5432:5432 -v taskdata:/var/lib/postgresql/data -d postgres:16
-```
-
-**Note on Postgres version:** pinned to `postgres:16` rather than the default `postgres` (18+) tag — the 18+ image changed its data directory layout in a way that's incompatible with the simple single-mount volume this assignment assumes, and caused a startup error on the newer default.
-
-### Stage 1 — App connects, table created, seeded once
-
-- `DATABASE_URL` lives in `.env` (gitignored; `.env.example` committed with the same shape).
-- `db.postgres.js` connects via the `pg` driver, creates the `tasks` table if missing (`id SERIAL PRIMARY KEY, title TEXT NOT NULL, done BOOLEAN NOT NULL DEFAULT false`), and seeds three example tasks only if the table is empty — same first-run rule as A2's SQLite version.
-
-### Stage 2 — Read endpoints on Postgres
-
-- Split into two parallel apps, matching the existing `.postgres.js` naming convention:
-  - `server.js` + `repositories/taskRepository.js` → SQLite, port `3000` (unchanged from A2)
-  - `server.postgres.js` + `repositories/taskRepository.postgres.js` → Postgres, port `3001` (new)
-- `GET /tasks` and `GET /tasks/:id` implemented against Postgres with `$1`-style parameterized queries.
-- **Bug caught and fixed:** the first version of the Postgres route handlers weren't `async`, so `res.json(taskRepo.getTasks(...))` serialized the unresolved Promise instead of its result — every response came back as `{}`. Fixed by making each handler `async` and `await`-ing the repository call.
-
-### Stage 3 — Full CRUD on Postgres
-
-- `createTask`, `updateTask`, `deleteTask` ported to `taskRepository.postgres.js`; POST/PUT/DELETE routes uncommented and made `async` in `server.postgres.js`.
-- `createTask` uses `INSERT ... RETURNING *` to get the new row back in one query.
-- `deleteTask` uses `pg`'s `result.rowCount` (not `better-sqlite3`'s `.changes` — different driver, same concept: rows actually affected) to report whether a row was deleted.
-- **Bug caught and fixed in `updateTask`:** the first version checked `if (!existing)` directly on the raw `pool.query()` result — but that's always a truthy result object (`{ rows, rowCount, ... }`), not the row itself, so a missing task never correctly triggered a 404. Fixed by destructuring `{ rows }` and checking `rows[0]` instead, matching the pattern already used in `getTaskById`. Also fixed `newDone`, which had leftover SQLite-style `done ? 1 : 0` coercion — the Postgres column is `BOOLEAN`, so it now stays a real boolean.
-
-Verified full cycle via Hoppscotch against `localhost:3001`: create → update → delete, each confirmed with `GET /tasks`, correct status codes (`201`, `200`, `204`, `404`) throughout.
-
-**Windows note:** use PowerShell, not CMD, for `docker exec ... -c "..."` commands — CMD mangles the quoted `-c` argument. PowerShell handles both single and double quotes correctly.
-
-Next: Dockerfile + `compose.yaml` so `docker compose up` starts app and database together (Stage 4).
-
-## Known limitations
-
-- No authentication — this is a local development API, not production-hardened.
-- Port `3000` is hardcoded rather than read from an environment variable.
-- SQLite is a single-file, single-writer database — fine for this project's scale, not intended for concurrent production traffic. Postgres migration is planned for a later assignment (A3).
-- Postgres containerization (A3) is in progress — Stages 0–3 done (container running, table created/seeded, full CRUD working on `server.postgres.js`, port 3001). Docker Compose (Stage 4) not yet complete.
+1. Clone the repo: `git clone https://github.com/davidyassa/CRUD_API.git && cd CRUD_API`
+2. Copy the example env file: `cp .env.example .env`
+3. Stop any hand-run Postgres container so the port is free: `docker stop taskdb` (if one exists)
+4. Start the whole stack: `docker compose up`
+5. Once both containers report ready, hit the API at `http://localhost:3000/tasks`
+6. To confirm persistence: create a task, then `docker compose down` followed by `docker compose up` again — the task is still there, because the named volume kept the data.
 
 ## Project structure
 ```

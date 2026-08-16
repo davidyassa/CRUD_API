@@ -1,5 +1,4 @@
-const dbpg = require("../db.postgres"),
-    { pool } = dbpg;
+const { pool, initDb } = require("../db.postgres");
 
 // ---------- GET ----------
 
@@ -39,7 +38,7 @@ async function getTaskById(id) {
 
 async function createTask(title, done = false) {
     const result = await pool.query("INSERT INTO tasks (title, done) VALUES ($1, $2) RETURNING *", [title, done]);
-    return await getTaskByTitle(title);
+    return result.rows[0];
 }
 
 // ---------- PUT ----------
@@ -50,6 +49,9 @@ async function updateTask(id, { title, done } = {}) {
     if (!existing) return undefined;
 
     const newTitle = title ?? existing.title; // `??` default value if null
+    const duplicate = await getTaskByTitle(newTitle);
+    if (duplicate && duplicate.id !== id) return undefined;
+
     const newDone = done !== undefined ? done : existing.done; // keep `done` as booleanl; same as Postgres column
 
     await pool.query("UPDATE tasks SET title = $1, done = $2 WHERE id = $3", [newTitle, newDone, id]);
@@ -63,12 +65,6 @@ async function deleteTask(id) {
     return result.rowCount > 0; // returns deleted rowCount
 }
 
-// ---------- START ----------
-
-
-async function initDb() {
-    return dbpg.initDb();
-}
 
 module.exports = {
     getTasks,

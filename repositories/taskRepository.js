@@ -1,5 +1,4 @@
-const dbjs = require("../db"),
-    db = dbjs.db;
+const { db, countTasks, fillTasks } = require("../db");
 
 /** Converts a raw SQLite row (done as 0/1) into API-shape JSON (done as boolean). */
 function toApiShape(row) {
@@ -24,6 +23,9 @@ function getTasks({ done, search, sorted } = {}) {
 
     if (sorted !== undefined && Boolean(sorted.toLowerCase()) === true) {
         query += " ORDER BY title";
+    }
+    else {
+        query += " ORDER BY id";
     }
 
 
@@ -51,7 +53,7 @@ function createTask(title, done = false) {
 
 function resetTasks() {
     db.prepare("DELETE FROM tasks").run();
-    dbjs.fillTasks();
+    fillTasks();
 }
 
 // ---------- PUT ----------
@@ -61,6 +63,10 @@ function updateTask(id, { title, done } = {}) {
     if (!existing) return undefined;
 
     const newTitle = title ?? existing.title; // `??` default value if null
+
+    const duplicate = getTaskByTitle(newTitle);
+    if (duplicate && duplicate.id !== id) return undefined;
+
     const newDone = done !== undefined ? (done ? 1 : 0) : existing.done;
 
     db.prepare("UPDATE tasks SET title = ?, done = ? WHERE id = ?").run(
@@ -77,14 +83,6 @@ function deleteTask(id) {
     const result = db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
     return result.changes > 0; // true if something changed in the table
 }
-
-
-// ---------- FUNCTIONS ----------
-function countTasks(done = undefined) {
-    return dbjs.countTasks(done); // avoid accessing db from server
-}
-
-
 
 module.exports = {
     getTasks,

@@ -1,9 +1,10 @@
 const taskRepo = require("./repositories/taskRepository"),
-  pgTaskRepo = require("./repositories/taskRepository.postgres"),
   express = require("express"),
+  cors = require('cors'),
   app = express(),
   swaggerUi = require("swagger-ui-express"),
   openApiDocument = require("./openai.json");
+app.use(cors());
 app.use(express.json());
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
@@ -98,16 +99,7 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-// ---------- FUNCTIONS ----------
+app.listen(3001, () => {
+  console.log("Server running on http://localhost:3001");
+});
 
-async function start() {
-  await pgTaskRepo.initDb();  // for postgres async db
-
-  app.listen(3000, () => {
-    console.log("Server running on http://localhost:3000");
-  });
-}
-
-// ---------- SERVER START ----------
-
-start();
