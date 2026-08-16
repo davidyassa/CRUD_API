@@ -61,6 +61,10 @@ function updateTask(id, { title, done } = {}) {
     if (!existing) return undefined;
 
     const newTitle = title ?? existing.title; // `??` default value if null
+
+    const duplicate = getTaskByTitle(newTitle);
+    if (duplicate && duplicate.id !== id) return undefined;
+
     const newDone = done !== undefined ? (done ? 1 : 0) : existing.done;
 
     db.prepare("UPDATE tasks SET title = ?, done = ? WHERE id = ?").run(

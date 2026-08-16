@@ -1,5 +1,4 @@
 const taskRepo = require("./repositories/taskRepository"),
-  pgTaskRepo = require("./repositories/taskRepository.postgres"),
   express = require("express"),
   app = express(),
   swaggerUi = require("swagger-ui-express"),
@@ -98,16 +97,7 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-// ---------- FUNCTIONS ----------
+app.listen(3001, () => {
+  console.log("Server running on http://localhost:3001");
+});
 
-async function start() {
-  await pgTaskRepo.initDb();  // for postgres async db
-
-  app.listen(3000, () => {
-    console.log("Server running on http://localhost:3000");
-  });
-}
-
-// ---------- SERVER START ----------
-
-start();

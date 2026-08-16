@@ -107,7 +107,16 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-app.listen(30000, () => {
-  console.log("Server running on http://localhost:30000");
-});
+async function start() {
+  await taskRepo.initDb();
+
+  const port = process.env.PORT ?? 3000;
+  app.listen(port, () => {
+    console.log(`Server running on http://localhost:${port}`);
+  });
+}
+
+// ---------- SERVER START ----------
+
+start();
 
