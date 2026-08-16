@@ -97,6 +97,16 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-app.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
-});
+// ---------- FUNCTIONS ----------
+
+async function start() {
+  await taskRepo.initDb(); // for postgres async db
+
+  app.listen(3000, () => {
+    console.log("Server running on http://localhost:3000");
+  });
+}
+
+// ---------- SERVER START ----------
+
+start();

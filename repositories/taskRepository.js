@@ -1,5 +1,7 @@
 const dbjs = require("../db"),
     db = dbjs.db;
+const pgdb = require("../db.postgres");
+
 /** Converts a raw SQLite row (done as 0/1) into API-shape JSON (done as boolean). */
 function toApiShape(row) {
     return { ...row, done: Boolean(row.done) };
@@ -83,6 +85,10 @@ function countTasks(done = undefined) {
     return dbjs.countTasks(done); // avoid accessing db from server
 }
 
+function initDb() {
+    pgdb.initDb();
+}
+
 module.exports = {
     getTasks,
     getTaskById,
@@ -92,4 +98,5 @@ module.exports = {
     deleteTask,
     resetTasks,
     countTasks,
+    initDb,
 };
