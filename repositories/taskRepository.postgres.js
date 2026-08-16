@@ -1,6 +1,16 @@
-const { pool, initDb } = require("../db.postgres");
+const { pool, initDb, countTasks } = require("../db.postgres");
 
 // ---------- GET ----------
+
+async function checkHealth() {
+    try {
+        await pool.query("SELECT 1");
+        return true;
+    } catch (err) {
+        console.error("DB health check failed:", err);
+        return false;
+    }
+}
 
 async function getTasks({ done, search, sorted } = {}) {
     let query = "SELECT * FROM tasks WHERE 1=1"; // `WHERE 1=1` to help later build dynamic query
@@ -18,6 +28,9 @@ async function getTasks({ done, search, sorted } = {}) {
 
     if (sorted !== undefined && Boolean(sorted.toLowerCase()) === true) {
         query += " ORDER BY title";
+    }
+    else {
+        query += " ORDER BY id";
     }
 
     const { rows } = await pool.query(query, params);
@@ -67,6 +80,7 @@ async function deleteTask(id) {
 
 
 module.exports = {
+    checkHealth,
     getTasks,
     getTaskByTitle,
     getTaskById,
@@ -74,4 +88,5 @@ module.exports = {
     createTask,
     updateTask,
     deleteTask,
+    countTasks,
 };

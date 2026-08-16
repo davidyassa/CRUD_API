@@ -1,4 +1,3 @@
-// db.postgres.js
 const { Pool } = require('pg');
 require('dotenv').config();
 
@@ -18,7 +17,7 @@ async function initDb() {
     await pool.query(CREATE_TABLE_SQL);
 
     const { rows } = await pool.query('SELECT COUNT(*) FROM tasks');
-    const isEmpty = parseInt(rows[0].count, 10) === 0;
+    const isEmpty = parseInt(rows[0].count) === 0;
 
     if (isEmpty) {
         await fillTasks();
@@ -32,8 +31,21 @@ async function fillTasks() {
     await pool.query(insert, ["second", false]);
     await pool.query(insert, ["third", false]);
 }
+
+async function countTasks(done = undefined) {
+    let query = "SELECT COUNT(*) AS count FROM tasks WHERE 1=1";
+    const params = [];
+    if (done !== undefined) {
+        query += " AND done = $1";
+        params.push(done);
+    }
+    const { rows } = await pool.query(query, params);
+    return parseInt(rows[0].count);
+}
+
 module.exports = {
     pool,
     initDb,
     fillTasks,
+    countTasks,
 };

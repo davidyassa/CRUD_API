@@ -1,8 +1,11 @@
+const { connectRedis, pingRedis } = require("./db.redis");
 const taskRepo = require("./repositories/taskRepository.postgres"),
   express = require("express"),
+  cors = require('cors'),
   app = express(),
   swaggerUi = require("swagger-ui-express"),
   openApiDocument = require("./openai.json");
+app.use(cors());
 app.use(express.json());
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
@@ -16,8 +19,15 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+app.get("/health", async (req, res) => {
+  const dbOk = await taskRepo.checkHealth();
+  const redisOk = await pingRedis();
+  const allOk = dbOk && redisOk;
+  res.status(allOk ? 200 : 503).json({
+    status: allOk ? "ok" : "degraded",
+    db: dbOk ? "ok" : "down",
+    redis: redisOk ? "ok" : "down",
+  });
 });
 
 app.get("/tasks", async (req, res) => {
@@ -45,14 +55,19 @@ app.get("/tasks/:id", async (req, res) => {
   }
 });
 
-// app.get("/stats", (req, res) => {
-//   const l = taskRepo.countTasks();
-//   const done = taskRepo.countTasks(true);
-//   const undone = taskRepo.countTasks(false);
-//   res.json({ "total": l, "completed": done, "remaining": undone });
-// });
+app.get("/stats", async (req, res) => {
+  try {
+    const total = await taskRepo.countTasks();
+    const done = await taskRepo.countTasks(true);
+    const remaining = await taskRepo.countTasks(false);
+    res.json({ total, completed: done, remaining });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
-// // ---------- POST ----------
+// ---------- POST ----------
 
 app.post("/tasks", async (req, res) => {
   const title = req.body.title;
@@ -68,12 +83,7 @@ app.post("/tasks", async (req, res) => {
   return res.status(201).json(task);
 });
 
-// app.post("/reset", (req, res) => {
-//   taskRepo.resetTasks();
-//   res.status(200).json(taskRepo.getTasks());
-// });
-
-// // ---------- PUT ----------
+// ---------- PUT ----------
 
 app.put("/tasks/:id", async (req, res) => {
   const id = Number(req.params.id);
@@ -87,7 +97,7 @@ app.put("/tasks/:id", async (req, res) => {
   return res.status(200).json(updated);
 });
 
-// // ---------- DELETE ----------
+// ---------- DELETE ----------
 
 app.delete("/tasks/:id", async (req, res) => {
   const id = Number(req.params.id);
@@ -107,16 +117,20 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
+// ---------- SERVER START ----------
+
 async function start() {
   await taskRepo.initDb();
+  await connectRedis();
+
+  const redisOk = await pingRedis();  // extended health check to include redis
+  console.log(`Redis connection: ${redisOk ? 'OK' : 'FAILED'}`);
 
   const port = process.env.PORT ?? 3000;
   app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
   });
 }
-
-// ---------- SERVER START ----------
 
 start();
 
