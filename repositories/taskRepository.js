@@ -46,7 +46,7 @@ function createTask(title, done = false) {
     const result = db
         .prepare("INSERT INTO tasks (title, done) VALUES (?, ?)")
         .run(title.toLowerCase(), done ? 1 : 0);
-    return getTaskById(result.lastInsertRowid);
+    return getTaskByTitle(title);
 }
 
 function resetTasks() {
@@ -55,7 +55,6 @@ function resetTasks() {
 }
 
 // ---------- PUT ----------
-
 
 function updateTask(id, { title, done } = {}) {
     const existing = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);

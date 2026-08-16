@@ -44,28 +44,29 @@ app.get("/tasks/:id", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-app.get("/stats", (req, res) => {
-  const l = taskRepo.countTasks();
-  const done = taskRepo.countTasks(true);
-  const undone = taskRepo.countTasks(false);
-  res.json({ "total": l, "completed": done, "remaining": undone });
-});
+
+// app.get("/stats", (req, res) => {
+//   const l = taskRepo.countTasks();
+//   const done = taskRepo.countTasks(true);
+//   const undone = taskRepo.countTasks(false);
+//   res.json({ "total": l, "completed": done, "remaining": undone });
+// });
 
 // // ---------- POST ----------
 
-// app.post("/tasks", (req, res) => {
-//   const title = req.body.title;
-//   if (!title) {
-//     return res.status(400).json({ error: `Title is empty` });
-//   }
-//   const taskExists = taskRepo.getTaskByTitle(title);
+app.post("/tasks", async (req, res) => {
+  const title = req.body.title;
+  if (!title) {
+    return res.status(400).json({ error: `Title is empty` });
+  }
+  const taskExists = await taskRepo.getTaskByTitle(title);
 
-//   if (taskExists) {
-//     return res.status(409).json({ error: `Task \`${title}\` already exists` });
-//   }
-//   const task = taskRepo.createTask(title);
-//   return res.status(201).json(task);
-// })
+  if (taskExists) {
+    return res.status(409).json({ error: `Task \`${title}\` already exists` });
+  }
+  const task = await taskRepo.createTask(title);
+  return res.status(201).json(task);
+});
 
 // app.post("/reset", (req, res) => {
 //   taskRepo.resetTasks();
@@ -74,28 +75,28 @@ app.get("/stats", (req, res) => {
 
 // // ---------- PUT ----------
 
-// app.put("/tasks/:id", (req, res) => {
-//   const id = Number(req.params.id);
-//   const { title, done } = req.body;
-//   if (done === undefined && (title === undefined || title.trim() === ""))
-//     return res.status(400).json({ error: `Request body must include a valid title or done status` });
+app.put("/tasks/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  const { title, done } = req.body;
+  if (done === undefined && (title === undefined || title.trim() === ""))
+    return res.status(400).json({ error: `Request body must include a valid title or done status` });
 
-//   const updated = taskRepo.updateTask(id, { title, done });
+  const updated = await taskRepo.updateTask(id, { title, done });
 
-//   if (!updated) return res.status(404).json({ error: `Task ${id} not found` });
-//   return res.status(200).json(updated);
-// })
+  if (!updated) return res.status(404).json({ error: `Task ${id} not found` });
+  return res.status(200).json(updated);
+});
 
 // // ---------- DELETE ----------
 
-// app.delete("/tasks/:id", (req, res) => {
-//   const id = Number(req.params.id);
+app.delete("/tasks/:id", async (req, res) => {
+  const id = Number(req.params.id);
 
-//   const deleted = taskRepo.deleteTask(id);
-//   if (!deleted) return res.status(404).json({ error: `Task ${id} not found` });
+  const deleted = await taskRepo.deleteTask(id);
+  if (!deleted) return res.status(404).json({ error: `Task ${id} not found` });
 
-//   return res.status(204).send(); // `.send()` to actually send the empty body
-// })
+  return res.status(204).send(); // `.send()` to actually send the empty body
+});
 
 // ---------- ERROR HANDLING ----------
 

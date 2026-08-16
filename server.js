@@ -57,7 +57,7 @@ app.post("/tasks", (req, res) => {
   }
   const task = taskRepo.createTask(title);
   return res.status(201).json(task);
-})
+});
 
 app.post("/reset", (req, res) => {
   taskRepo.resetTasks();
@@ -76,7 +76,7 @@ app.put("/tasks/:id", (req, res) => {
 
   if (!updated) return res.status(404).json({ error: `Task ${id} not found` });
   return res.status(200).json(updated);
-})
+});
 
 // ---------- DELETE ----------
 
@@ -87,7 +87,7 @@ app.delete("/tasks/:id", (req, res) => {
   if (!deleted) return res.status(404).json({ error: `Task ${id} not found` });
 
   return res.status(204).send(); // `.send()` to actually send the empty body
-})
+});
 
 // ---------- ERROR HANDLING ----------
 

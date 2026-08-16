@@ -134,7 +134,7 @@ This is the same query pattern the app itself could expose as a "clear completed
 
 ## Containerizing the stack (A3, in progress)
 
-**Status: Stage 2 complete.** SQLite (`server.js`, port 3000) and Postgres (`server.postgres.js`, port 3001) now run as two independent, side-by-side apps — same repository-pattern architecture, different storage engine.
+**Status: Stage 3 complete.** Full CRUD now works against Postgres via `server.postgres.js` (port 3001), alongside the untouched SQLite version on `server.js` (port 3000).
 
 ### Stage 0 — Postgres in Docker
 
@@ -153,27 +153,31 @@ docker run --name taskdb -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=tasks -p 5432:5
 
 ### Stage 2 — Read endpoints on Postgres
 
-- Split into two parallel apps, matching the existing `.postgres.js` naming convention already used for `db.js`/`db.postgres.js`:
+- Split into two parallel apps, matching the existing `.postgres.js` naming convention:
   - `server.js` + `repositories/taskRepository.js` → SQLite, port `3000` (unchanged from A2)
   - `server.postgres.js` + `repositories/taskRepository.postgres.js` → Postgres, port `3001` (new)
-- `GET /tasks` and `GET /tasks/:id` implemented against Postgres using `$1`-style parameterized queries via `pool.query()`, matching the SQLite repository's function names, parameters, and return contract (`getTaskById` returns `undefined` when not found either way).
-- POST/PUT/DELETE routes are commented out in `server.postgres.js` until Stage 3 ports the write operations.
-- Postgres's native `BOOLEAN` column means `done` comes back as real `true`/`false` — no `toApiShape()` conversion needed, unlike the SQLite version which stores `done` as `0`/`1`.
+- `GET /tasks` and `GET /tasks/:id` implemented against Postgres with `$1`-style parameterized queries.
+- **Bug caught and fixed:** the first version of the Postgres route handlers weren't `async`, so `res.json(taskRepo.getTasks(...))` serialized the unresolved Promise instead of its result — every response came back as `{}`. Fixed by making each handler `async` and `await`-ing the repository call.
 
-**Bug caught and fixed:** the first version of the Postgres route handlers weren't `async`, so `res.json(taskRepo.getTasks(...))` serialized the unresolved Promise itself instead of its result — every response came back as `{}`. Fixed by making each route handler `async` and `await`-ing the repository call, since `pg` has no synchronous query API (unlike `better-sqlite3`).
+### Stage 3 — Full CRUD on Postgres
 
-Verified via Hoppscotch: `GET http://localhost:3001/tasks` returns the 3 seeded rows with correct `done` booleans; `GET http://localhost:3001/tasks/999` returns `404`.
+- `createTask`, `updateTask`, `deleteTask` ported to `taskRepository.postgres.js`; POST/PUT/DELETE routes uncommented and made `async` in `server.postgres.js`.
+- `createTask` uses `INSERT ... RETURNING *` to get the new row back in one query.
+- `deleteTask` uses `pg`'s `result.rowCount` (not `better-sqlite3`'s `.changes` — different driver, same concept: rows actually affected) to report whether a row was deleted.
+- **Bug caught and fixed in `updateTask`:** the first version checked `if (!existing)` directly on the raw `pool.query()` result — but that's always a truthy result object (`{ rows, rowCount, ... }`), not the row itself, so a missing task never correctly triggered a 404. Fixed by destructuring `{ rows }` and checking `rows[0]` instead, matching the pattern already used in `getTaskById`. Also fixed `newDone`, which had leftover SQLite-style `done ? 1 : 0` coercion — the Postgres column is `BOOLEAN`, so it now stays a real boolean.
+
+Verified full cycle via Hoppscotch against `localhost:3001`: create → update → delete, each confirmed with `GET /tasks`, correct status codes (`201`, `200`, `204`, `404`) throughout.
 
 **Windows note:** use PowerShell, not CMD, for `docker exec ... -c "..."` commands — CMD mangles the quoted `-c` argument. PowerShell handles both single and double quotes correctly.
 
-Next: port `createTask`, `updateTask`, `deleteTask` to `taskRepository.postgres.js` and uncomment the write routes in `server.postgres.js` (Stage 3).
+Next: Dockerfile + `compose.yaml` so `docker compose up` starts app and database together (Stage 4).
 
 ## Known limitations
 
 - No authentication — this is a local development API, not production-hardened.
 - Port `3000` is hardcoded rather than read from an environment variable.
 - SQLite is a single-file, single-writer database — fine for this project's scale, not intended for concurrent production traffic. Postgres migration is planned for a later assignment (A3).
-- Postgres containerization (A3) is in progress — Stages 0–2 done (container running, table created/seeded, read endpoints working on `server.postgres.js`, port 3001). Write endpoints (POST/PUT/DELETE) and Docker Compose (Stages 3–4) not yet complete.
+- Postgres containerization (A3) is in progress — Stages 0–3 done (container running, table created/seeded, full CRUD working on `server.postgres.js`, port 3001). Docker Compose (Stage 4) not yet complete.
 
 ## Project structure
 ```
