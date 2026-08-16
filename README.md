@@ -4,7 +4,7 @@ A CRUD API for managing a to-do list, built with Node.js and Express as part of 
 
 Supports full Create, Read, Update, and Delete on tasks, interactive documentation via Swagger UI, and a couple of stretch extras (filtering, search). Data is now persisted in a SQLite database — tasks survive server restarts.
 
-#### 🚀 Built as part of the FlyRank Backend Internship (Week 2–3, Assignments A1 & A2).
+#### 🚀 Built as part of the FlyRank Backend Internship (Week 2–3, Assignments A1 & A2). Postgres containerization (A3) in progress.
 
 ## Tech stack
 
@@ -132,12 +132,28 @@ This is the same query pattern the app itself could expose as a "clear completed
 - **Query filtering** — `GET /tasks?done=true` and `GET /tasks?search=milk` (combinable)
 - **Duplicate-title check (409)** on `POST /tasks`
 
+## Containerizing the stack (A3, in progress)
+
+**Status: Stage 0 complete.** The app still runs against SQLite as described above — Postgres is not wired in yet.
+
+A PostgreSQL 16 container is running locally with a named volume for persistence:
+
+```bash
+docker run --name taskdb -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=tasks -p 5432:5432 -v taskdata:/var/lib/postgresql/data -d postgres:16
+```
+
+Verified with `docker ps`, confirming an empty `tasks` database is reachable on `localhost:5432`.
+
+**Note on Postgres version:** pinned to `postgres:16` rather than the default `postgres` (18+) tag — the 18+ image changed its data directory layout in a way that's incompatible with the simple single-mount volume this assignment (and most guides) assume, and caused a startup error on the newer default. Pinning to 16 avoids that mismatch.
+
+Next: connect the app via `.env` / `DATABASE_URL`, add a `taskRepository.postgres.js` implementing the same interface as the current SQLite repository, and swap it in without touching routes.
+
 ## Known limitations
 
-- `GET /stats` and `POST /reset` are currently disabled — they still reference the old in-memory array and haven't been ported to SQLite yet.
 - No authentication — this is a local development API, not production-hardened.
 - Port `3000` is hardcoded rather than read from an environment variable.
 - SQLite is a single-file, single-writer database — fine for this project's scale, not intended for concurrent production traffic. Postgres migration is planned for a later assignment (A3).
+- Postgres containerization (A3) is in progress — see "Containerizing the stack" section above. `.env` / `.env.example` and a Postgres repository are not yet in the repo.
 
 ## Project structure
 ```
