@@ -1,6 +1,6 @@
-const { db, countTasks, fillTasks } = require("../db");
+const { db, countTasks, fillTasks } = require("../../db");
 
-/** Converts a raw SQLite row (done as 0/1) into API-shape JSON (done as boolean). */
+// Converts a raw SQLite row (done as 0/1) into API-shape JSON (done as boolean).
 function toApiShape(row) {
     return { ...row, done: Boolean(row.done) };
 }
@@ -21,7 +21,7 @@ function getTasks({ done, search, sorted } = {}) {
         query += " AND LOWER(title) LIKE ?";
     }
 
-    if (sorted !== undefined && Boolean(sorted.toLowerCase()) === true) {
+    if (sorted?.toLowerCase() === "true") { // `sorted?.` "optional chaining" returns undefined instead of error if sorted === undefined
         query += " ORDER BY title";
     }
     else {
@@ -45,10 +45,11 @@ function getTaskById(id) {
 // ---------- POST ----------
 
 function createTask(title, done = false) {
+    const newTitle = title.toLowerCase();
     const result = db
         .prepare("INSERT INTO tasks (title, done) VALUES (?, ?)")
-        .run(title.toLowerCase(), done ? 1 : 0);
-    return getTaskByTitle(title);
+        .run(newTitle, done ? 1 : 0);
+    return getTaskByTitle(newTitle);
 }
 
 function resetTasks() {
@@ -58,22 +59,10 @@ function resetTasks() {
 
 // ---------- PUT ----------
 
-function updateTask(id, { title, done } = {}) {
-    const existing = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
-    if (!existing) return undefined;
+function updateTask(id, { newTitle, done } = {}) {
+    const newDone = done ? 1 : 0;
 
-    const newTitle = title ?? existing.title; // `??` default value if null
-
-    const duplicate = getTaskByTitle(newTitle);
-    if (duplicate && duplicate.id !== id) return undefined;
-
-    const newDone = done !== undefined ? (done ? 1 : 0) : existing.done;
-
-    db.prepare("UPDATE tasks SET title = ?, done = ? WHERE id = ?").run(
-        newTitle,
-        newDone,
-        id
-    );
+    db.prepare("UPDATE tasks SET title = ?, done = ? WHERE id = ?").run(newTitle, newDone, id);
     return getTaskById(id);
 }
 
@@ -88,9 +77,9 @@ module.exports = {
     getTasks,
     getTaskByTitle,
     getTaskById,
+    resetTasks,
     createTask,
     updateTask,
     deleteTask,
-    resetTasks,
     countTasks,
 };

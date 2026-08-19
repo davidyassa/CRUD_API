@@ -1,4 +1,4 @@
-const { pool, initDb, countTasks } = require("../db.postgres");
+const { pool, initDb, countTasks } = require("../../db.postgres");
 
 // ---------- GET ----------
 
@@ -26,7 +26,7 @@ async function getTasks({ done, search, sorted } = {}) {
         query += ` AND LOWER(title) LIKE $${params.length}`;
     }
 
-    if (sorted !== undefined && Boolean(sorted.toLowerCase()) === true) {
+    if (sorted?.toLowerCase() === "true") { // `sorted?.` "optional chaining" returns undefined instead of error if sorted === undefined
         query += " ORDER BY title";
     }
     else {
@@ -56,18 +56,9 @@ async function createTask(title, done = false) {
 
 // ---------- PUT ----------
 
-async function updateTask(id, { title, done } = {}) {
-    const { rows } = await pool.query("SELECT * FROM tasks WHERE id = $1", [id]);
-    const existing = rows[0];
-    if (!existing) return undefined;
+async function updateTask(id, { newTitle, done } = {}) {
 
-    const newTitle = title ?? existing.title; // `??` default value if null
-    const duplicate = await getTaskByTitle(newTitle);
-    if (duplicate && duplicate.id !== id) return undefined;
-
-    const newDone = done !== undefined ? done : existing.done; // keep `done` as booleanl; same as Postgres column
-
-    await pool.query("UPDATE tasks SET title = $1, done = $2 WHERE id = $3", [newTitle, newDone, id]);
+    await pool.query("UPDATE tasks SET title = $1, done = $2 WHERE id = $3", [newTitle, done, id]);
     return await getTaskById(id);
 }
 

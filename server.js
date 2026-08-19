@@ -1,8 +1,8 @@
-const { ValidationError, ConflictError, NotFoundError } = require("./src/errors");
 const { errorHandler } = require("./src/middleware/error-handler");
-const taskRepo = require("./repositories/taskRepository"),
-  express = require("express"),
+const express = require("express"),
   cors = require('cors'),
+  taskRepo = require("./src/repositories/taskRepository"),
+  services = require("./src/services/tasks.service").TaskServices(taskRepo),
   app = express(),
   swaggerUi = require("swagger-ui-express"),
   openApiDocument = require("./openai.json");
@@ -24,77 +24,53 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.get("/tasks", (req, res) => {
+app.get("/tasks", async (req, res) => {
   const d = req.query.done !== undefined ? (req.query.done.toLowerCase() === "true") : undefined;
-  res.json(taskRepo.getTasks({ done: d, search: req.query.search, sorted: req.query.sorted }));
+  res.json(await services.getAllTasks({ done: d, search: req.query.search, sorted: req.query.sorted }));
 });
 
-app.get("/tasks/:id", (req, res) => {
+app.get("/tasks/:id", async (req, res) => {
   const id = Number(req.params.id);
-  const task = taskRepo.getTaskById(id);
-
-  if (!task) {
-    throw new NotFoundError(`Task ${id} not found`);
-  }
-  res.json(task);
+  res.json(await services.getTask({ id }));
 });
 
-app.get("/stats", (req, res) => {
-  const l = taskRepo.countTasks();
-  const done = taskRepo.countTasks(true);
-  const undone = taskRepo.countTasks(false);
-  res.json({ "total": l, "completed": done, "remaining": undone });
+app.get("/stats", async (req, res) => {
+  const stats = await services.getStats();
+  res.json(stats);
 });
 
 // ---------- POST ----------
 
-app.post("/tasks", (req, res) => {
+app.post("/tasks", async (req, res) => {
   const title = req.body.title;
-  if (!title) {
-    throw new ValidationError(`Title is empty`);
-  }
-  const taskExists = taskRepo.getTaskByTitle(title);
-
-  if (taskExists) {
-    throw new ConflictError(`Task \`${title}\` already exists`);
-  }
-  const task = taskRepo.createTask(title);
-  return res.status(201).json(task);
+  return res.status(201).json(await services.createTask(title));
 });
 
-app.post("/reset", (req, res) => {
-  taskRepo.resetTasks();
-  res.status(200).json(taskRepo.getTasks());
+app.post("/reset", async (req, res) => {
+  return res.status(200).json(await services.resetTasks());
 });
 
 // ---------- PUT ----------
 
-app.put("/tasks/:id", (req, res) => {
+app.put("/tasks/:id", async (req, res) => {
   const id = Number(req.params.id);
   const { title, done } = req.body;
-  if (done === undefined && (title === undefined || title.trim() === ""))
-    throw new ValidationError(`Request body must include a valid title or done status`);
 
-  const updated = taskRepo.updateTask(id, { title, done });
-
-  if (!updated) throw new NotFoundError(`Task ${id} not found`);
-  return res.status(200).json(updated);
+  return res.status(200).json(await services.updateTask(id, { title, done }));
 });
 
 // ---------- DELETE ----------
 
-app.delete("/tasks/:id", (req, res) => {
+app.delete("/tasks/:id", async (req, res) => {
   const id = Number(req.params.id);
-
-  const deleted = taskRepo.deleteTask(id);
-  if (!deleted) throw new NotFoundError(`Task ${id} not found`);
+  const deleted = await services.deleteTask(id);
 
   return res.status(204).send(); // `.send()` to actually send the empty body
 });
 
 // ---------- ERROR HANDLING ----------
 
-app.use(errorHandler);  // this catches all unexpected errors
+app.use(errorHandler);  // this catches all errors
 
 app.listen(3001, () => {
   console.log("Server running on http://localhost:3001");
