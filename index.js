@@ -1,5 +1,5 @@
 require("dotenv").config();
-
+const { supabase } = require("./src/clients/supabase.client");
 const { createApp } = require("./src/app");
 const { TaskServices } = require("./src/services/tasks.service");
 
@@ -46,6 +46,7 @@ async function start() {
         console.log(
             `Server running with ${databaseType} on http://localhost:${port}`,
         );
+        if (supabase) console.log("Supabase client initialized");
     });
 }
 
