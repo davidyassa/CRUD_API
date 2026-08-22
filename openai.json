@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Task API",
-    "version": "3.0.0",
-    "description": "A CRUD API for managing an in-memory to-do list."
+    "version": "4.0.0",
+    "description": "A CRUD API for managing a to-do list, backed by either SQLite or PostgreSQL depending on DATABASE_TYPE."
   },
   "servers": [
     {
@@ -23,12 +23,27 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "name": { "type": "string", "example": "Task API" },
-                    "version": { "type": "string", "example": "3.0" },
+                    "name": {
+                      "type": "string",
+                      "example": "Task API"
+                    },
+                    "version": {
+                      "type": "string",
+                      "example": "4.0"
+                    },
+                    "database": {
+                      "type": "string",
+                      "example": "postgres"
+                    },
                     "endpoints": {
                       "type": "array",
-                      "items": { "type": "string" },
-                      "example": ["/tasks"]
+                      "items": {
+                        "type": "string"
+                      },
+                      "example": [
+                        "/tasks",
+                        "/stats"
+                      ]
                     }
                   }
                 }
@@ -40,17 +55,54 @@
     },
     "/health": {
       "get": {
-        "summary": "Check server is up",
-        "description": "Liveness check. Always returns ok if the server is running.",
+        "summary": "Check server and dependency health",
+        "description": "On SQLite, returns a simple ok status. On Postgres, also checks the database (SELECT 1) and Redis (PING) and returns 503 if either is unreachable.",
         "responses": {
           "200": {
-            "description": "Server is healthy",
+            "description": "Server (and dependencies, if applicable) are healthy",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "string", "example": "ok" }
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "db": {
+                      "type": "string",
+                      "example": "ok",
+                      "description": "Postgres mode only"
+                    },
+                    "redis": {
+                      "type": "string",
+                      "example": "ok",
+                      "description": "Postgres mode only"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A dependency (db or redis) is unreachable — Postgres mode only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "degraded"
+                    },
+                    "db": {
+                      "type": "string",
+                      "example": "down"
+                    },
+                    "redis": {
+                      "type": "string",
+                      "example": "ok"
+                    }
                   }
                 }
               }
@@ -68,14 +120,18 @@
             "name": "done",
             "in": "query",
             "required": false,
-            "schema": { "type": "boolean" },
+            "schema": {
+              "type": "boolean"
+            },
             "description": "Filter by completion status (true = done, false = not done)."
           },
           {
             "name": "search",
             "in": "query",
             "required": false,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Case-insensitive substring match on task title."
           }
         ],
@@ -86,7 +142,9 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/Task" }
+                  "items": {
+                    "$ref": "#/components/schemas/Task"
+                  }
                 }
               }
             }
@@ -102,9 +160,14 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["title"],
+                "required": [
+                  "title"
+                ],
                 "properties": {
-                  "title": { "type": "string", "example": "Buy milk" }
+                  "title": {
+                    "type": "string",
+                    "example": "Buy milk"
+                  }
                 }
               }
             }
@@ -115,7 +178,9 @@
             "description": "Task created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Task" }
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
               }
             }
           },
@@ -123,7 +188,9 @@
             "description": "Missing or empty title",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           },
@@ -131,7 +198,9 @@
             "description": "A task with this title already exists",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           }
@@ -144,7 +213,9 @@
           "name": "id",
           "in": "path",
           "required": true,
-          "schema": { "type": "integer" },
+          "schema": {
+            "type": "integer"
+          },
           "description": "The task's numeric id."
         }
       ],
@@ -155,7 +226,9 @@
             "description": "Task found",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Task" }
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
               }
             }
           },
@@ -163,7 +236,9 @@
             "description": "Task not found",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           }
@@ -179,8 +254,14 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "title": { "type": "string", "example": "Buy groceries" },
-                  "done": { "type": "boolean", "example": true }
+                  "title": {
+                    "type": "string",
+                    "example": "Buy groceries"
+                  },
+                  "done": {
+                    "type": "boolean",
+                    "example": true
+                  }
                 }
               }
             }
@@ -188,10 +269,26 @@
         },
         "responses": {
           "200": {
-            "description": "Task updated",
+            "description": "Task updated (or unchanged — `message: 'no change'` added if nothing actually changed)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Task" }
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Task"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "example": "no change",
+                          "description": "Only present when the update caused no actual change"
+                        }
+                      }
+                    }
+                  ]
+                }
               }
             }
           },
@@ -199,7 +296,9 @@
             "description": "Body missing both fields, or title is empty",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           },
@@ -207,7 +306,19 @@
             "description": "Task not found",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another task already has this title",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           }
@@ -223,7 +334,9 @@
             "description": "Task not found",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           }
@@ -242,8 +355,18 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "total": { "type": "integer", "example": 3 },
-                    "completed": { "type": "integer", "example": 1 }
+                    "total": {
+                      "type": "integer",
+                      "example": 3
+                    },
+                    "completed": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "remaining": {
+                      "type": "integer",
+                      "example": 2
+                    }
                   }
                 }
               }
@@ -254,8 +377,8 @@
     },
     "/reset": {
       "post": {
-        "summary": "Reset tasks",
-        "description": "Clears all tasks and restores the three seed tasks. Takes no request body.",
+        "summary": "Reset tasks (SQLite only)",
+        "description": "Clears all tasks and restores the three seed tasks. Takes no request body. Only available when running with DATABASE_TYPE=sqlite — not present on the Postgres build.",
         "responses": {
           "200": {
             "description": "Tasks reset",
@@ -263,7 +386,9 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/Task" }
+                  "items": {
+                    "$ref": "#/components/schemas/Task"
+                  }
                 }
               }
             }
@@ -277,15 +402,27 @@
       "Task": {
         "type": "object",
         "properties": {
-          "id": { "type": "integer", "example": 1 },
-          "title": { "type": "string", "example": "Buy milk" },
-          "done": { "type": "boolean", "example": false }
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "title": {
+            "type": "string",
+            "example": "Buy milk"
+          },
+          "done": {
+            "type": "boolean",
+            "example": false
+          }
         }
       },
       "Error": {
         "type": "object",
         "properties": {
-          "error": { "type": "string", "example": "Task 99 not found" }
+          "error": {
+            "type": "string",
+            "example": "Task 99 not found"
+          }
         }
       }
     }
