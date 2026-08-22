@@ -1,72 +1,85 @@
 # 📋 Task API
 
-A CRUD API for managing a to-do list, built with Node.js and Express as part of the FlyRank Backend Internship (Weeks 2–3, Assignments A1–A3).
+A CRUD API for managing a to-do list, built with Node.js and Express as part of the FlyRank Backend Internship (Weeks 2–4, Assignments A1–A3 + layered architecture refactor).
 
-Full Create, Read, Update, Delete on tasks, interactive Swagger docs, and three storage backends built side by side to prove the same API works unchanged across them: **in-memory (A1) → SQLite (A2) → containerized Postgres (A3)**.
+Full Create, Read, Update, Delete on tasks, interactive Swagger docs, and two interchangeable storage backends — SQLite and containerized Postgres — running through a single, unified entry point. One `DATABASE_TYPE` setting decides which one runs; the routes, validation, and API behavior never change.
 
 ---
 
 ## 🧱 Tech stack
 
-- **Node.js** + **Express** — server and routing
-- **better-sqlite3** — synchronous SQLite driver (`tasks.db`)
-- **pg** — PostgreSQL driver for the containerized version
+- **Node.js** + **Express 5** — server and routing (Express 5 auto-forwards async errors, no manual try/catch needed in routes)
+- **better-sqlite3** — synchronous SQLite driver
+- **pg** — PostgreSQL driver
+- **redis** — Redis client, used for a real connectivity + health check (Postgres mode only)
 - **swagger-ui-express** — interactive docs from a hand-written OpenAPI 3.0 spec (`openai.json`)
 - **cors** — allows browser-based tools (e.g. Hoppscotch) to call the API from a different origin
-- **Docker + Docker Compose** — containerized Postgres stack
-- **redis** — in-memory cache/dependency client, used here for a real Redis connectivity + health check
-- 
+- **Docker + Docker Compose** — containerized Postgres + Redis stack
+
 ---
 
 ## 🗂️ Project structure
-├── server.js # SQLite app (port 3001)  
-├── server.postgres.js # Postgres app (port 3000, containerized)     
-├── db.js # SQLite connection, table creation, seeding    
-├── db.postgres.js # Postgres connection, table creation, seeding   
-├── db.redis.js                        # Redis client, connection, ping health check 
-├── repositories/    
-│ ├── taskRepository.js # SQLite queries    
-│ └── taskRepository.postgres.js # Postgres queries — same function signatures    
-├── Dockerfile # Builds the Postgres app image    
-├── compose.yaml # api + db services, one-command startup    
-├── tasks.db # SQLite file (gitignored)    
-├── .env / .env.example # DATABASE_URL, PORT, Postgres credentials    
-├── openai.json # OpenAPI spec powering /docs    
-├── package.json    
-└── README.md     
----
-
-## 🚀 Quick start — SQLite version
-
-**Requires:** [Node.js 18+](https://nodejs.org) installed on your machine (npm comes bundled).
-
-```bash
-git clone https://github.com/davidyassa/CRUD_API.git
-cd CRUD_API
-npm install
-node server.js
-```
-Runs on **http://localhost:3001** · Swagger docs at **http://localhost:3001/docs**. `tasks.db` is created and seeded automatically on first run — no database setup needed.
+├── index.js # single entry point — reads DATABASE_TYPE, wires the matching repo, starts the app  
+├── src/  
+│ ├── app.js # Express app factory — mounts routes + middleware, backend-agnostic  
+│ ├── errors.js # typed error classes (ValidationError, NotFoundError, ConflictError)  
+│ ├── middleware/  
+│ │ └── error-handler.js # central error → status code mapping  
+│ ├── routes/  
+│ │ ├── task.routes.js # /tasks routes — thin, delegate to services  
+│ │ └── meta.routes.js # /, /health  
+│ ├── services/  
+│ │ └── tasks.service.js # business logic — validation, duplicate checks, stats — shared by both backends  
+│ ├── repositories/  
+│ │ ├── taskRepository.js # SQLite data access  
+│ │ └── taskRepository.postgres.js # Postgres data access — same function signatures  
+│ └── db/  
+│ ├── db.sqlite.js # SQLite connection, table creation, seeding  
+│ ├── db.postgres.js # Postgres connection, table creation, seeding  
+│ └── db.redis.js # Redis client, connection, ping  
+├── Dockerfile # builds the Postgres app image  
+├── compose.yaml # api + db + redis services, one-command startup  
+├── tasks.db # SQLite file (gitignored)  
+├── .env / .env.example # DATABASE_TYPE, PORT, Postgres credentials  
+├── openai.json # OpenAPI spec powering /docs  
+├── package.json  
+└── README.md  
 
 ---
 
-## 🐋 Quick start — Postgres version (Docker)
+## 🚀 Quick start
 
-**Requires:** [Docker Desktop](https://www.docker.com/products/docker-desktop) running. No local Node.js install needed — the app runs entirely inside the container.
 
 ```bash
 git clone https://github.com/davidyassa/CRUD_API.git
 cd CRUD_API
 cp .env.example .env
+```
+
+### SQLite (no Docker needed)
+**Requires:** [Node.js 18+](https://nodejs.org)
+```bash
+# in .env: DATABASE_TYPE=sqlite
+npm install
+npm start
+```
+`tasks.db` is created and seeded automatically on first run — no database setup needed.
+
+### Postgres (Docker)
+**Requires:** [Docker Desktop](https://www.docker.com/products/docker-desktop) running. No local Node.js install needed — the app runs entirely inside the container.
+```bash
+# in .env: DATABASE_TYPE=postgres
 docker compose up
 ```
-Compose builds the app image, starts Postgres, creates the `tasks` table, seeds it, and starts the API — all in one command.
+Compose builds the app image, starts Postgres + Redis, creates the `tasks` table, seeds it, and starts the API — all in one command.
 
-Runs on **http://localhost:3000** · Swagger docs at **http://localhost:3000/docs**
+Either way, the API runs on **http://localhost:3000** (set by `PORT` in `.env`) · Swagger docs at **http://localhost:3000/docs**.
 
-**Confirm persistence:** create a task, then `docker compose down` followed by `docker compose up` again — the task is still there, because the named volume (`taskdata`) kept the data.
+**Switching backends:** change `DATABASE_TYPE` in `.env`, then restart with `npm start` (SQLite) or `docker compose up` (Postgres). Only one runs at a time — both use the same port.
 
-**(optional) Browsing the database directly:** connect a free Postgres GUI ([TablePlus](https://tableplus.com), [DBeaver](https://dbeaver.io), pgAdmin) with:
+**Confirm Postgres persistence:** create a task, then `docker compose down` followed by `docker compose up` again — the task is still there, because the named volume (`taskdata`) kept the data.
+
+**(optional) Browsing the Postgres database directly:** connect a free GUI ([TablePlus](https://tableplus.com), [DBeaver](https://dbeaver.io), pgAdmin) with:
 | Field    | Value                                      |
 | -------- | ------------------------------------------ |
 | Host     | `localhost`                                |
@@ -80,18 +93,17 @@ Runs on **http://localhost:3000** · Swagger docs at **http://localhost:3000/doc
 ## 🧪 Testing the API (no coding required)
 
 ### Option 1 — Swagger UI (built in, zero setup)
-Open **http://localhost:3001/docs** (SQLite) or **http://localhost:3000/docs** (Postgres) in your browser. Click any endpoint to expand it, hit **"Try it out"**, fill in the fields, click **"Execute"**.
+Open **http://localhost:3000/docs**. Click any endpoint to expand it, hit **"Try it out"**, fill in the fields, click **"Execute"**.
 
 ### Option 2 — Hoppscotch (a free API-testing tool)
 1. Go to **[hoppscotch.io](https://hoppscotch.io)** — no install, no account needed.
    > If requests fail with a network/CORS error, install the [Hoppscotch browser extension](https://chromewebstore.google.com/detail/hoppscotch-browser-extension/amknoiejhlmhancpahfcfcfhllgkpbld) — this app already sends CORS headers, but some browser setups still need it for `localhost`.
-2. Set the method dropdown (top-left) to match the endpoint.
-3. Paste the full URL, e.g. `http://localhost:3000/tasks`.
-4. For `POST`/`PUT` requests: click the **Body** tab, select **JSON**:
+2. Set the method dropdown to match the endpoint, paste the URL, e.g. `http://localhost:3000/tasks`.
+3. For `POST`/`PUT`: click **Body** → **JSON**:
 ```json
    { "title": "Buy milk" }
 ```
-5. Click **Send**. The response, status code, and timing appear below.
+4. Click **Send**.
 
 **Quick things to try:**
 | Try this       | Method + URL                               | Body                          |
@@ -102,57 +114,52 @@ Open **http://localhost:3001/docs** (SQLite) or **http://localhost:3000/docs** (
 | Mark it done   | `PUT` → `http://localhost:3000/tasks/4`    | `{ "done": true }`            |
 | Delete it      | `DELETE` → `http://localhost:3000/tasks/4` | —                             |
 
-(Swap port `3000` for `3001` to test the SQLite version instead.)
-
 ---
 
 ## 📡 Endpoints
 
-| Method | Path         | Description                                                                           |
-| ------ | ------------ | ------------------------------------------------------------------------------------- |
-| GET    | `/`          | API description                                                                       |
-| GET    | `/health`    | Reports API + dependency status (`db`, `redis`) — `200` if healthy, `503` if degraded |
-| GET    | `/tasks`     | List all tasks — supports `?done=true\|false` and `?search=term`                      |
-| GET    | `/tasks/:id` | Get a single task by id                                                               |
-| POST   | `/tasks`     | Create a task (`{ "title": "..." }`)                                                  |
-| PUT    | `/tasks/:id` | Update a task's `title` and/or `done`                                                 |
-| DELETE | `/tasks/:id` | Delete a task                                                                         |
-
-> **Version differences:** `POST /reset` exists only on the SQLite version (`server.js`) — it wasn't ported to Postgres by design (see Known limitations). `GET /stats` is implemented on both versions.  
+| Method | Path         | Description                                                                                                                                  |
+| ------ | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/`          | API description — name, active `database` type, available endpoints                                                                          |
+| GET    | `/health`    | Reports API status; on Postgres also checks `db` (`SELECT 1`) and `redis` (`PING`) — `200`/`503`                                             |
+| GET    | `/tasks`     | List all tasks — supports `?done=true\|false` and `?search=term`                                                                             |
+| GET    | `/tasks/:id` | Get a single task by id                                                                                                                      |
+| GET    | `/stats`     | Task counts: `total`, `completed`, `remaining`                                                                                               |
+| POST   | `/tasks`     | Create a task (`{ "title": "..." }`)                                                                                                         |
+| POST   | `/reset`     | **SQLite only** — clears and reseeds the table                                                                                               |
+| PUT    | `/tasks/:id` | Update a task's `title` and/or `done`; if nothing actually changed, returns the task with an added `message: "no change"` field, still `200` |
+| DELETE | `/tasks/:id` | Delete a task                                                                                                                                |
 
 ### Status codes
 
-| Code | Meaning                                               |
-| ---- | ----------------------------------------------------- |
-| 200  | Successful read/update                                |
-| 201  | Task created                                          |
-| 204  | Task deleted (empty body)                             |
-| 400  | Invalid or missing input                              |
-| 404  | Task with that id doesn't exist                       |
-| 409  | A task with that title already exists (create/update) |
-
-### Example request
-```powershell
->> curl.exe -i -X POST http://localhost:3000/tasks -H "Content-Type: application/json" --% -d "{\"title\":\"Buy milk\"}"
-HTTP/1.1 201 Created
-Content-Type: application/json; charset=utf-8
-
-{"id":4,"title":"Buy milk","done":false}
-```
+| Code | Meaning                                                 |
+| ---- | ------------------------------------------------------- |
+| 200  | Successful read/update                                  |
+| 201  | Task created                                            |
+| 204  | Task deleted (empty body)                               |
+| 400  | Invalid or missing input                                |
+| 404  | Task with that id doesn't exist                         |
+| 409  | A task with that title already exists (create/update)   |
+| 503  | `/health` reports a degraded dependency (Postgres mode) |
 
 ---
 
-## 🗄️ Why three storage backends
+## 🏗️ Architecture
 
-- **In-memory (A1)** — fastest to build, gone on every restart.
-- **SQLite (A2)** — a single-file database (`tasks.db`), no server to install, synchronous driver (`better-sqlite3`), simple to reason about. Not built for concurrent multi-writer workloads.
-- **Postgres in Docker (A3)** — a real database server, the kind that powers production backends. `docker compose up` starts app + database together with one command; data persists in a named volume across restarts.
+A layered structure keeps storage swappable without touching routes or business rules:
 
-Both live apps share the same repository pattern: `taskRepository.js` and `taskRepository.postgres.js` expose identical function names and signatures, so **only the repository changes — routes never do**. That's the architecture proving itself.
+**`routes` → `services` → `repositories` → database**
+
+- **Routes** (`src/routes/`) are thin — they parse the request and call a service, nothing more.
+- **Services** (`src/services/tasks.service.js`) own all business logic — validation, duplicate-title checks, not-found handling, stats aggregation. Written **once**, shared by both backends via `TaskServices(repo)`, a factory that takes whichever repository `index.js` injects.
+- **Repositories** (`src/repositories/`) are pure data access — no validation, no rules — just run a query and return the result. `taskRepository.js` and `taskRepository.postgres.js` expose identical function signatures, so this is the *only* layer that changes between backends.
+- **Errors** (`src/errors.js` + `src/middleware/error-handler.js`) — typed error classes (`ValidationError`, `NotFoundError`, `ConflictError`) thrown from the service, caught in one central place and mapped to status codes. Express 5 auto-forwards thrown/rejected errors from async route handlers, so no per-route try/catch is needed.
+
+`index.js` is the only file that knows both backends exist: it reads `DATABASE_TYPE`, requires the matching repository and db connection, and hands everything else the same app factory.
 
 **Postgres version note:** pinned to `postgres:16`, not the default `postgres` (18+) tag — the 18+ image changed its data-directory layout in a way that's incompatible with a simple single-mount volume, which caused a startup error on the newer default.
 
-**Lean container image:** the Dockerfile only installs the packages `server.postgres.js` actually needs (`express`, `pg`, `swagger-ui-express`, `dotenv`, `cors`) instead of the full `package.json` — this deliberately skips `better-sqlite3`, which needs native compilation tools not present in the lightweight `node:22-alpine` base image, and isn't needed for the Postgres path anyway.
+**Lean container image:** the Dockerfile only installs the packages the app actually needs (`express`, `pg`, `swagger-ui-express`, `dotenv`, `cors`, `redis`) instead of the full `package.json` — this deliberately skips `better-sqlite3`, which needs native compilation tools not present in the lightweight `node:22-alpine` base image, and isn't needed in the Postgres container anyway.
 
 **Secrets:** `DATABASE_URL` is never hardcoded — in Compose it's assembled from `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, and `PORT` env vars (`.env`, gitignored; placeholder values committed to `.env.example`).
 
@@ -164,17 +171,17 @@ Both live apps share the same repository pattern: `taskRepository.js` and `taskR
 
 ## 🔍 Database viewers
 
-SQLite, via DB Browser for SQLite:
+SQLite, via [DB Browser for SQLite](https://sqlitebrowser.org/dl/):
 
 ![Database viewer screenshot](./docs/DBBrowser.avif)
 
-Postgres, via TablePlus:
+Postgres, via [TablePlus](https://tableplus.com/download/):
 
 ![TablePlus screenshot](./docs/TablePlusGUI.avif)
 
 ## 🩺 Health check in action
 
-Healthy state — both dependencies reachable:
+Healthy state (Postgres mode):
 ```json
 { "status": "ok", "db": "ok", "redis": "ok" }
 ```
@@ -185,7 +192,7 @@ Degraded state — Redis stopped (`docker compose stop redis`), API stays up but
 
 ## 🧪 Example SQL query
 
-Run manually against the SQLite database in DB Browser (Stage 4, A2):
+Run manually against the SQLite database in [DB Browser](https://sqlitebrowser.org/dl/):
 ```sql
 DELETE FROM tasks WHERE done = 1;
 ```
@@ -197,13 +204,15 @@ Clears completed tasks — a direct, visible confirmation that manual database c
 
 - Query filtering — `GET /tasks?done=true` and `GET /tasks?search=milk` (combinable)
 - Duplicate-title check (`409`) on both `POST /tasks` and `PUT /tasks/:id`
-- Postgres version fully containerized with Docker Compose, configurable port via `.env`
-- CORS enabled so the API can be tested directly from browser-based tools like Hoppscotch
-- Real `/health` check — pings Postgres (`SELECT 1`) and Redis (`PING`) rather than returning a static `"ok"`; returns `503` if either dependency is down
-- Redis added to the Docker Compose stack (`redis:7-alpine`), connected on startup, and included in the health check
+- No-op update detection on `PUT /tasks/:id` — flags when a request changes nothing
+- Layered architecture (routes/services/repositories/errors) — one service and one set of routes shared by both backends
+- Real `/health` check on Postgres — pings the database (`SELECT 1`) and Redis (`PING`) rather than returning a static `"ok"`; returns `503` if either dependency is down
+- Redis added to the Docker Compose stack, connected on startup, included in the health check
+- Single unified entry point (`index.js`) and shared `PORT` — switch backends via one `.env` value, no separate scripts or ports to remember
 
-## ⚠️ Worth Noting
+## ⚠️ Worth noting
 
-- No authentication — local development APIs, not production-hardened.
-- `POST /reset` exists only on the SQLite version; not implemented for Postgres by choice — the Postgres version is meant to demonstrate persistence, and a reset endpoint cuts against that.
+- No authentication (_yet_) — local development APIs, not production-hardened.
+- `POST /reset` is SQLite-only by design — the Postgres version exists specifically to demonstrate persistence, and a reset endpoint cuts against that story.
 - SQLite is single-writer — fine at this scale, exactly why the Postgres version exists.
+- Only one backend runs at a time; switching requires changing `DATABASE_TYPE` and restarting.
