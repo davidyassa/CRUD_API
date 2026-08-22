@@ -1,6 +1,9 @@
 const { NotFoundError, ValidationError, ConflictError } = require("../errors");
 
 function TaskServices(repo) {
+
+    // ---------- GET ----------
+
     async function getStats() {
         const total = await repo.countTasks();
         const done = await repo.countTasks(true);
@@ -30,6 +33,8 @@ function TaskServices(repo) {
         else throw new ValidationError(`Invalid title or id`);
     }
 
+    // ---------- POST ----------
+
     async function createTask(title) {
         if (!title) throw new ValidationError("Title is empty");
 
@@ -38,6 +43,11 @@ function TaskServices(repo) {
 
         return await repo.createTask(title);
     }
+    async function resetTasks() {
+        await repo.resetTasks();
+        return await repo.getTasks();
+    }
+    // ---------- PUT ----------
 
     async function updateTask(id, { title, done }) {
         if (done === undefined && (title === undefined || title.trim() === ""))
@@ -49,22 +59,25 @@ function TaskServices(repo) {
         const newTitle = title ?? existing.title;
         const newDone = done !== undefined ? done : existing.done;
 
+
         const duplicate = await repo.getTaskByTitle(newTitle);
         if (duplicate && duplicate.id !== id) throw new ConflictError(`Task \`${newTitle}\` already exists`);
 
         const updated = await repo.updateTask(id, { newTitle, done: newDone });
+
+        if (newTitle === existing.title && newDone === existing.done) {
+            return { ...updated, message: "no change" };
+        }
+
         return updated;
     }
+    // ---------- DELETE ----------
 
     async function deleteTask(id) {
         const deleted = await repo.deleteTask(id);
         if (!deleted) throw new NotFoundError(`Task ${id} not found`);
     }
 
-    async function resetTasks() {
-        await repo.resetTasks();
-        return await repo.getTasks();
-    }
 
     return {
         getStats,

@@ -16,5 +16,6 @@ services:
     volumes: [taskdata:/var/lib/postgresql/data]
   redis:
     image: redis:7-alpine
+    ports: ["${REDIS_PORT}:${REDIS_PORT}"]
 volumes:
   taskdata:
