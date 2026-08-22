@@ -1,4 +1,4 @@
-const { db, countTasks, fillTasks } = require("../../db");
+const { db, countTasks, fillTasks } = require("../db/db.sqlite");
 
 // Converts a raw SQLite row (done as 0/1) into API-shape JSON (done as boolean).
 function toApiShape(row) {
@@ -54,6 +54,8 @@ function createTask(title, done = false) {
 
 function resetTasks() {
     db.prepare("DELETE FROM tasks").run();
+    db.prepare("DELETE FROM sqlite_sequence WHERE name='tasks'").run();
+    db.prepare("VACUUM").run();
     fillTasks();
 }
 

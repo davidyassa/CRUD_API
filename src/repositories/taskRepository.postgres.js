@@ -1,4 +1,4 @@
-const { pool, initDb, countTasks } = require("../../db.postgres");
+const { pool, initDb, countTasks } = require("../db/db.postgres");
 
 // ---------- GET ----------
 
