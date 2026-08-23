@@ -2,6 +2,7 @@ require("dotenv").config();
 const { supabase } = require("./src/clients/supabase.client");
 const { createApp } = require("./src/app");
 const { TaskServices } = require("./src/services/tasks.service");
+const { AuthServices } = require("./src/services/auth.service");
 
 const databaseType = (
     process.env.DATABASE_TYPE ?? "postgres"
@@ -32,9 +33,11 @@ async function start() {
     }
 
     const services = TaskServices(taskRepo);
+    const authServices = AuthServices(supabase);
 
     const app = createApp({
         services,
+        authServices,
         databaseType,
         taskRepo,
         pingRedis,

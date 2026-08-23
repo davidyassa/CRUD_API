@@ -21,8 +21,16 @@ class ConflictError extends Error {     // duplicate title
     }
 }
 
+class UnauthorizedError extends Error {   // bad/missing credentials or token
+    constructor(message) {
+        super(message);
+        this.name = 'UnauthorizedError';
+    }
+}
+
 module.exports = {
     NotFoundError,
     ValidationError,
     ConflictError,
+    UnauthorizedError,
 };

@@ -5,9 +5,10 @@ const openApiDocument = require("../openai.json");
 
 const { TaskRoutes } = require("./routes/task.routes");
 const { MetaRoutes } = require("./routes/meta.routes");
+const { AuthRoutes } = require("./routes/auth.routes");
 const { errorHandler } = require("./middleware/error-handler");
 
-function createApp({ services, databaseType, taskRepo, pingRedis }) {
+function createApp({ services, authServices, databaseType, taskRepo, pingRedis }) {
     const app = express();
 
     app.use(cors());
@@ -21,7 +22,9 @@ function createApp({ services, databaseType, taskRepo, pingRedis }) {
 
     app.use(
         "/",
-        TaskRoutes(services, { databaseType }),
+        TaskRoutes(services, {
+            databaseType,
+        }),
     );
 
     app.use(
@@ -31,6 +34,11 @@ function createApp({ services, databaseType, taskRepo, pingRedis }) {
             taskRepo,
             pingRedis,
         }),
+    );
+
+    app.use(
+        "/",
+        AuthRoutes(authServices),
     );
 
     app.use(errorHandler);
