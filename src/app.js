@@ -17,7 +17,11 @@ function createApp({ services, authServices, databaseType, taskRepo, pingRedis }
     app.use(
         "/docs",
         swaggerUi.serve,
-        swaggerUi.setup(openApiDocument),
+        swaggerUi.setup(openApiDocument, {
+            swaggerOptions: {
+                persistAuthorization: true, // keeps token pasted-in across page refreshes
+            },
+        }),
     );
 
     app.use(

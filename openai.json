@@ -13,6 +13,9 @@
   "paths": {
     "/": {
       "get": {
+        "tags": [
+          "Meta"
+        ],
         "summary": "Get API description",
         "description": "Returns basic information about this API.",
         "responses": {
@@ -53,8 +56,171 @@
         }
       }
     },
+    "/auth/signup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Create a new user account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "test@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created"
+          },
+          "400": {
+            "description": "Missing email or password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Authenticate and receive a JWT",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "test@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "access_token": {
+                      "type": "string"
+                    },
+                    "refresh_token": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing email or password"
+          },
+          "401": {
+            "description": "Invalid login credentials"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "End the current session",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Logged out"
+          },
+          "401": {
+            "description": "Missing or invalid token"
+          }
+        }
+      }
+    },
+    "/public/info": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Public, unauthenticated info",
+        "responses": {
+          "200": {
+            "description": "Public message"
+          }
+        }
+      }
+    },
+    "/protected/profile": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get the authenticated user's profile",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User profile"
+          },
+          "401": {
+            "description": "Missing or invalid token"
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
+        "tags": [
+          "Meta"
+        ],
         "summary": "Check server and dependency health",
         "description": "On SQLite, returns a simple ok status. On Postgres, also checks the database (SELECT 1) and Redis (PING) and returns 503 if either is unreachable.",
         "responses": {
@@ -113,6 +279,9 @@
     },
     "/tasks": {
       "get": {
+        "tags": [
+          "Tasks"
+        ],
         "summary": "List tasks",
         "description": "Returns all tasks, optionally filtered by completion status and/or a title search term.",
         "parameters": [
@@ -152,6 +321,9 @@
         }
       },
       "post": {
+        "tags": [
+          "Tasks"
+        ],
         "summary": "Create a task",
         "description": "Creates a new task with the given title. Title must be non-empty.",
         "requestBody": {
@@ -220,6 +392,9 @@
         }
       ],
       "get": {
+        "tags": [
+          "Tasks"
+        ],
         "summary": "Get one task",
         "responses": {
           "200": {
@@ -245,6 +420,9 @@
         }
       },
       "put": {
+        "tags": [
+          "Tasks"
+        ],
         "summary": "Update a task",
         "description": "Replaces title and/or done on an existing task. At least one field is required.",
         "requestBody": {
@@ -325,6 +503,9 @@
         }
       },
       "delete": {
+        "tags": [
+          "Tasks"
+        ],
         "summary": "Delete a task",
         "responses": {
           "204": {
@@ -345,6 +526,9 @@
     },
     "/stats": {
       "get": {
+        "tags": [
+          "Tasks"
+        ],
         "summary": "Get task statistics",
         "description": "Returns the total number of tasks and how many are completed.",
         "responses": {
@@ -377,6 +561,9 @@
     },
     "/reset": {
       "post": {
+        "tags": [
+          "Tasks"
+        ],
         "summary": "Reset tasks (SQLite only)",
         "description": "Clears all tasks and restores the three seed tasks. Takes no request body. Only available when running with DATABASE_TYPE=sqlite — not present on the Postgres build.",
         "responses": {
@@ -398,6 +585,13 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
     "schemas": {
       "Task": {
         "type": "object",
@@ -426,5 +620,19 @@
         }
       }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Signup, login, logout, and protected routes"
+    },
+    {
+      "name": "Tasks",
+      "description": "CRUD operations on tasks"
+    },
+    {
+      "name": "Meta",
+      "description": "API info and health checks"
+    }
+  ]
 }
