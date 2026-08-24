@@ -1,4 +1,5 @@
 const express = require("express");
+const { requireAuth } = require("../middleware/auth-guard");
 
 function AuthRoutes(authServices) {
     const router = express.Router();
@@ -20,10 +21,19 @@ function AuthRoutes(authServices) {
         return res.status(200).json({ message: message });
     });
 
-    router.get("/protected/profile", async (req, res) => {
-        const authHeader = req.headers.authorization;
+    const guard = requireAuth(authServices);
 
-        return res.status(200).json(await authServices.validateUser(authHeader));
+    router.get("/protected/profile", guard, async (req, res) => {
+        return res.status(200).json(req.user);
+    });
+
+    router.get("/protected/dashboard", guard, async (req, res) => {
+        return res.status(200).json({ message: "Dashboard", user: req.user });
+    });
+
+    router.post("/auth/logout", guard, async (req, res) => {
+        await authServices.logout();
+        return res.status(204).send();
     });
 
     return router;

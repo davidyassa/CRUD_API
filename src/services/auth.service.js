@@ -51,10 +51,16 @@ function AuthServices(supabase) {
         };
     }
 
+    async function logout() {
+        const { error } = await supabase.auth.signOut({ scope: 'local' });
+        if (error) throw new Error(error.message);
+    }
+
     return {
         signUp,
-        login,
         validateUser,
+        login,
+        logout,
     };
 }
 
