@@ -23,7 +23,7 @@ function AuthRoutes(authServices) {
     router.get("/protected/profile", async (req, res) => {
         const authHeader = req.headers.authorization;
 
-        return res.status(200).json(await authServices.validateHeader(authHeader));
+        return res.status(200).json(await authServices.validateUser(authHeader));
     });
 
     return router;

@@ -27,7 +27,7 @@ function AuthServices(supabase) {
         };
     }
 
-    function validateHeader(authHeader) {
+    async function validateUser(authHeader) {
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
             throw new UnauthorizedError("Access token required");
         }
@@ -36,13 +36,26 @@ function AuthServices(supabase) {
 
         if (!token) throw new UnauthorizedError("Access token required");
 
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+
+        if (error || !user) throw new UnauthorizedError("Invalid or expired token");
+
+        const { id, email, created_at, last_sign_in_at } = user;
+
         return {
             message: "authorized",
-            token,
+            user_id: id,
+            user_email: email,
+            last_sign_in_at,
+            account_creation_date: created_at,
         };
     }
 
-    return { signUp, login, validateHeader };
+    return {
+        signUp,
+        login,
+        validateUser,
+    };
 }
 
 module.exports = { AuthServices };

@@ -1,8 +1,8 @@
 require("dotenv").config();
-const { supabase } = require("./src/clients/supabase.client");
 const { createApp } = require("./src/app");
 const { TaskServices } = require("./src/services/tasks.service");
 const { AuthServices } = require("./src/services/auth.service");
+const { supabase } = require("./src/clients/supabase.client");
 
 const databaseType = (
     process.env.DATABASE_TYPE ?? "postgres"
