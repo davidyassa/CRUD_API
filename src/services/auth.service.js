@@ -27,7 +27,22 @@ function AuthServices(supabase) {
         };
     }
 
-    return { signUp, login };
+    function validateHeader(authHeader) {
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            throw new UnauthorizedError("Access token required");
+        }
+
+        const token = authHeader.split(" ")[1]; // [Bearer, token]
+
+        if (!token) throw new UnauthorizedError("Access token required");
+
+        return {
+            message: "authorized",
+            token,
+        };
+    }
+
+    return { signUp, login, validateHeader };
 }
 
 module.exports = { AuthServices };

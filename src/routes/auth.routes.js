@@ -15,6 +15,17 @@ function AuthRoutes(authServices) {
         return res.status(200).json(tokens);
     });
 
+    router.get("/public/info", (req, res) => {
+        const message = "Welcome stranger! This info is public.";
+        return res.status(200).json({ message: message });
+    });
+
+    router.get("/protected/profile", async (req, res) => {
+        const authHeader = req.headers.authorization;
+
+        return res.status(200).json(await authServices.validateHeader(authHeader));
+    });
+
     return router;
 }
 
