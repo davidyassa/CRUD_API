@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Scraped HTML cache
+cache/
+
+# Editor files
+.vscode/
+
+# Environment
+.env
