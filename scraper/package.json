@@ -1,0 +1,15 @@
+{
+  "name": "scraper",
+  "version": "1.0.0",
+  "description": "A small, polite scraping pipeline that downloads the first three catalogue\r pages of [Books to Scrape](https://books.toscrape.com), visits all 60 book\r pages, and turns the messy HTML into clean, schema-validated JSON records —\r without hammering the site, and without trusting anything it reads.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "zod": "^4.4.3"
+  }
+}
