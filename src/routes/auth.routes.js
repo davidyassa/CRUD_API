@@ -1,5 +1,6 @@
 const express = require("express");
 const { requireAuth } = require("../middleware/auth-guard");
+const { loginRateLimit } = require("../middleware/login-rate-limit");
 
 function AuthRoutes(authServices) {
     const router = express.Router();
@@ -10,7 +11,7 @@ function AuthRoutes(authServices) {
         return res.status(201).json({ user });
     });
 
-    router.post("/auth/login", async (req, res) => {
+    router.post("/auth/login", loginRateLimit, async (req, res) => {
         const { email, password } = req.body;
         const tokens = await authServices.login({ email, password });
         return res.status(200).json(tokens);

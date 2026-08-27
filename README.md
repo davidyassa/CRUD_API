@@ -175,6 +175,7 @@ Task routes are intentionally left open in this build — auth is scoped to the 
 | 401  | Missing, malformed, invalid, or expired bearer token; bad login credentials |
 | 404  | Task with that id doesn't exist                                             |
 | 409  | A task with that title already exists (create/update)                       |
+| 429  | Too many login attempts within the rate-limit window                        |
 | 503  | `/health` reports a degraded dependency (Postgres mode)                     |
 
 ---
@@ -253,6 +254,7 @@ Clears completed tasks — a direct, visible confirmation that manual database c
 - Single unified entry point (`index.js`) and shared `PORT` — switch backends via one `.env` value, no separate scripts or ports to remember
 - Reusable auth guard middleware (`requireAuth`) — locking a new route down is a one-line change, not copy-pasted header parsing
 - Swagger UI fully wired for bearer auth — tagged route groups, padlock icons, one-time Authorize flow, `persistAuthorization` so the token survives a page refresh
+- Rate-limited `POST /auth/login` (`express-rate-limit`, 3 attempts / 10 min per IP) — returns `429` past the limit, blunting brute-force credential guessing
 
 ## ⚠️ Worth noting
 
