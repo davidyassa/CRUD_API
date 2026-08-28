@@ -31,10 +31,14 @@ function parseCataloguePage(html, pageUrl) {
 /**
  * Walk catalogue pages starting at BASE_CATALOGUE_URL, following the site's own
  * "next" link, until there is no next link or we've collected 3 pages.
- * Returns a deduplicated list of absolute book URLs.
+ *
+ * Returns { url, sourcePage }[] — deduplicated by url — instead of a flat
+ * string[], because Stage 3's schema needs to know which catalogue page each
+ * book was discovered on. A Map<url, sourcePage> gives uniqueness (same
+ * guarantee a Set gave us) while still carrying that second field.
  */
 async function discoverBookUrls() {
-    const allBookUrls = new Set();
+    const bookUrlToSourcePage = new Map();
     let currentUrl = BASE_CATALOGUE_URL;
     let pageCount = 0;
 
@@ -43,7 +47,11 @@ async function discoverBookUrls() {
         const { html, fromCache } = await fetchWithCache(currentUrl, cachePath);
 
         const { bookUrls, nextUrl } = parseCataloguePage(html, currentUrl);
-        bookUrls.forEach((url) => allBookUrls.add(url));
+        bookUrls.forEach((url) => {
+            if (!bookUrlToSourcePage.has(url)) {
+                bookUrlToSourcePage.set(url, currentUrl);
+            }
+        });
 
         pageCount++;
         currentUrl = nextUrl;
@@ -53,8 +61,15 @@ async function discoverBookUrls() {
         }
     }
 
-    console.log(`catalogue_pages=${pageCount} discovered=${allBookUrls.size} unique_urls=${allBookUrls.size}`);
-    return Array.from(allBookUrls);
+    const discovered = Array.from(bookUrlToSourcePage, ([url, sourcePage]) => ({
+        url,
+        sourcePage,
+    }));
+
+    console.log(
+        `catalogue_pages=${pageCount} discovered=${discovered.length} unique_urls=${discovered.length}`
+    );
+    return discovered;
 }
 
 module.exports = {
