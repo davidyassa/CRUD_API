@@ -9,8 +9,8 @@ function sleep(ms) {
 }
 
 /**
- * Pull every book link and the "next page" link out of one catalogue page's HTML
- * Returns absolute URLs instead of relative ones
+ * Pull every book link and the "next page" link out of one catalogue page's HTML.
+ * Returns absolute URLs — never relative ones.
  */
 function parseCataloguePage(html, pageUrl) {
     const $ = cheerio.load(html);
@@ -23,7 +23,9 @@ function parseCataloguePage(html, pageUrl) {
     });
 
     const nextRelativeHref = $("li.next a").attr("href"); // undefined on the last page
-    const nextUrl = nextRelativeHref ? new URL(nextRelativeHref, pageUrl).href : null;
+    const nextUrl = nextRelativeHref
+        ? new URL(nextRelativeHref, pageUrl).href
+        : null;
 
     return { bookUrls, nextUrl };
 }
@@ -32,19 +34,36 @@ function parseCataloguePage(html, pageUrl) {
  * Walk catalogue pages starting at BASE_CATALOGUE_URL, following the site's own
  * "next" link, until there is no next link or we've collected 3 pages.
  *
- * Returns { url, sourcePage }[] — deduplicated by url — instead of a flat
- * string[], because Stage 3's schema needs to know which catalogue page each
- * book was discovered on. A Map<url, sourcePage> gives uniqueness (same
- * guarantee a Set gave us) while still carrying that second field.
+ * Returns { books, pagesFetched, cacheHits, failedPages }. books is
+ * { url, sourcePage }[], deduplicated by url via a Map. The other three
+ * fields feed Stage 5's run-report.json directly.
  */
 async function discoverBookUrls() {
     const bookUrlToSourcePage = new Map();
+    const failedPages = [];
+    let pagesFetched = 0;
+    let cacheHits = 0;
+
     let currentUrl = BASE_CATALOGUE_URL;
     let pageCount = 0;
 
     while (currentUrl && pageCount < 3) {
         const cachePath = `cache/catalogue-page-${pageCount + 1}.html`;
-        const { html, fromCache } = await fetchWithCache(currentUrl, cachePath);
+
+        let html;
+        let fromCache;
+        try {
+            ({ html, fromCache } = await fetchWithCache(currentUrl, cachePath));
+        } catch (error) {
+            console.error(`SKIP ${currentUrl} — ${error.message}`);
+            failedPages.push({ url: currentUrl, reason: error.message });
+            break; // no HTML means no next link either — discovery stops here
+        }
+
+        pagesFetched += 1;
+        if (fromCache) {
+            cacheHits += 1;
+        }
 
         const { bookUrls, nextUrl } = parseCataloguePage(html, currentUrl);
         bookUrls.forEach((url) => {
@@ -53,7 +72,7 @@ async function discoverBookUrls() {
             }
         });
 
-        pageCount++;
+        pageCount += 1;
         currentUrl = nextUrl;
 
         if (!fromCache && currentUrl) {
@@ -61,18 +80,16 @@ async function discoverBookUrls() {
         }
     }
 
-    const discovered = Array.from(bookUrlToSourcePage, ([url, sourcePage]) => ({
+    const books = Array.from(bookUrlToSourcePage, ([url, sourcePage]) => ({
         url,
         sourcePage,
     }));
 
     console.log(
-        `catalogue_pages=${pageCount} discovered=${discovered.length} unique_urls=${discovered.length}`
+        `catalogue_pages=${pageCount} discovered=${books.length} unique_urls=${books.length}`
     );
-    return discovered;
+
+    return { books, pagesFetched, cacheHits, failedPages };
 }
 
-module.exports = {
-    discoverBookUrls,
-    parseCataloguePage,
-};
+module.exports = { discoverBookUrls, parseCataloguePage };
