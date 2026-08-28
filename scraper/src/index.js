@@ -1,11 +1,9 @@
-const { fetchWithCache } = require("./fetcher");
-
-const CATALOGUE_PAGE_1 = "https://books.toscrape.com/catalogue/page-1.html";
-const CACHE_PATH = "cache/catalogue-page-1.html";
+const { discoverBookUrls } = require("./discover");
 
 async function main() {
     try {
-        await fetchWithCache(CATALOGUE_PAGE_1, CACHE_PATH);
+        const bookUrls = await discoverBookUrls();
+        console.log(bookUrls.slice(0, 5));  // first 5 URLs
     } catch (error) {
         console.error(error.message);
         process.exitCode = 1;

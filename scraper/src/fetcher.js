@@ -7,6 +7,7 @@ const {
 
 const { dirname } = require("path");
 
+// Identify myself to the website (request header)
 const USER_AGENT = "FlyRankInternship-A9/1.0 (+https://github.com/davidyassa/CRUD_API)";
 const TIMEOUT_MS = 5000;
 
@@ -15,7 +16,7 @@ async function fetchWithCache(url, cachePath) {
     if (existsSync(cachePath)) {
         const html = readFileSync(cachePath, "utf-8");
         console.log(`CACHE HIT ${cachePath} — ${html.length} bytes`);
-        return html;
+        return { html, fromCache: true };
     }
 
     // --- 2. Network fetch, with a timeout guard ---
@@ -32,7 +33,7 @@ async function fetchWithCache(url, cachePath) {
         if (error.name === "AbortError") {
             throw new Error(`FETCH TIMEOUT after ${TIMEOUT_MS}ms: ${url}`);
         }
-        throw error; // some other network failure (DNS, connection refused, etc.)
+        throw error; // catch-all
     } finally {
         clearTimeout(timeoutId);
     }
@@ -50,7 +51,7 @@ async function fetchWithCache(url, cachePath) {
 
     console.log(`FETCH ${url} — ${response.status} — ${html.length} bytes`);
 
-    return html;
+    return { html, fromCache: false };
 }
 
 module.exports = {
